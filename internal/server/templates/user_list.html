@@ -1,8 +1,28 @@
 {{range $name, $user := .Users}}
 <div class="card">
     <div class="form-row" style="justify-content: space-between;">
-        <h2>{{$name}}</h2>
+        <h2>
+            {{$name}}
+            {{if isLocked $user}}<span class="badge badge-red">Gesperrt bis {{formatUntil $user.LockedUntil}}</span>
+            {{else if hasBonus $user}}<span class="badge badge-green">Bonus bis {{formatUntil $user.BonusUntil}}</span>
+            {{end}}
+        </h2>
         <button class="danger" hx-delete="/users/{{$name}}" hx-target="#user-list" hx-swap="innerHTML" hx-confirm="Benutzer {{$name}} wirklich loeschen?">Loeschen</button>
+    </div>
+
+    <div class="form-row" style="gap: 0.5rem; margin-bottom: 0.5rem;">
+        {{if isLocked $user}}
+            {{if isInSchedule $user}}
+            <button hx-post="/users/{{$name}}/unlock" hx-target="#user-list" hx-swap="innerHTML">Entsperren</button>
+            {{end}}
+        {{else}}
+            <button class="danger" hx-post="/users/{{$name}}/lock" hx-target="#user-list" hx-swap="innerHTML">Sperren</button>
+        {{end}}
+        <form class="form-row" style="margin: 0;" hx-post="/users/{{$name}}/bonus" hx-target="#user-list" hx-swap="innerHTML">
+            <input type="number" name="minutes" min="1" value="15" style="width: 5rem;">
+            <span>Min.</span>
+            <button type="submit">Bonus geben</button>
+        </form>
     </div>
 
     <div id="schedules-{{$name}}">

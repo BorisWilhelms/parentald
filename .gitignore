@@ -1,6 +1,6 @@
-parentald-server
-server
-daemon
-dist/
+/parentald-server
+/server
+/daemon
+/dist/
 config.json
 *.env

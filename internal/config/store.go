@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 // Store manages reading and writing the config JSON file.
@@ -84,7 +85,16 @@ func (s *Store) Get() Config {
 	for k, v := range s.cfg.Users {
 		schedules := make([]Schedule, len(v.Schedules))
 		copy(schedules, v.Schedules)
-		users[k] = User{Schedules: schedules}
+		u := User{Schedules: schedules}
+		if v.LockedUntil != nil {
+			t := *v.LockedUntil
+			u.LockedUntil = &t
+		}
+		if v.BonusUntil != nil {
+			t := *v.BonusUntil
+			u.BonusUntil = &t
+		}
+		users[k] = u
 	}
 	return Config{Users: users}
 }
@@ -95,5 +105,25 @@ func (s *Store) Update(fn func(*Config)) error {
 	defer s.mu.Unlock()
 
 	fn(&s.cfg)
+	s.cleanupExpired(time.Now())
 	return s.Save()
+}
+
+// cleanupExpired clears LockedUntil and BonusUntil fields that are in the past.
+// Must be called while holding the write lock.
+func (s *Store) cleanupExpired(now time.Time) {
+	for k, u := range s.cfg.Users {
+		changed := false
+		if u.LockedUntil != nil && now.After(*u.LockedUntil) {
+			u.LockedUntil = nil
+			changed = true
+		}
+		if u.BonusUntil != nil && now.After(*u.BonusUntil) {
+			u.BonusUntil = nil
+			changed = true
+		}
+		if changed {
+			s.cfg.Users[k] = u
+		}
+	}
 }

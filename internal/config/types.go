@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 // Config is the top-level configuration structure.
 type Config struct {
 	Users map[string]User `json:"users"`
@@ -7,7 +9,9 @@ type Config struct {
 
 // User holds the screen time schedules for a single user.
 type User struct {
-	Schedules []Schedule `json:"schedules"`
+	Schedules   []Schedule `json:"schedules"`
+	LockedUntil *time.Time `json:"lockedUntil,omitempty"`
+	BonusUntil  *time.Time `json:"bonusUntil,omitempty"`
 }
 
 // Schedule defines an allowed time window on specific days.

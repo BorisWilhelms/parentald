@@ -27,6 +27,9 @@ func New(store *config.Store, adminUser, adminPass, binDir string) http.Handler 
 	protected.HandleFunc("DELETE /users/{name}", h.deleteUser)
 	protected.HandleFunc("POST /users/{name}/schedules", h.addSchedule)
 	protected.HandleFunc("DELETE /users/{name}/schedules/{index}", h.deleteSchedule)
+	protected.HandleFunc("POST /users/{name}/lock", h.lockUser)
+	protected.HandleFunc("POST /users/{name}/unlock", h.unlockUser)
+	protected.HandleFunc("POST /users/{name}/bonus", h.addBonus)
 
 	mux.Handle("/", basicAuth(protected, adminUser, adminPass))
 

@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/BorisWilhelms/parentald/internal/config"
 )
@@ -110,6 +111,100 @@ func (h *handlers) deleteSchedule(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.renderUserSchedules(w, name)
+}
+
+func (h *handlers) lockUser(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	now := time.Now()
+
+	err := h.store.Update(func(cfg *config.Config) {
+		user := cfg.Users[name]
+		next := config.NextScheduleStart(user, now)
+		if next != nil {
+			user.LockedUntil = next
+		} else {
+			// No schedules: lock "forever" (far future)
+			t := time.Date(9999, 1, 1, 0, 0, 0, 0, now.Location())
+			user.LockedUntil = &t
+		}
+		cfg.Users[name] = user
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.renderUserList(w)
+}
+
+func (h *handlers) unlockUser(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	now := time.Now()
+
+	cfg := h.store.Get()
+	user := cfg.Users[name]
+
+	// Only allow unlock if currently within a schedule window
+	if !config.IsInSchedule(user.Schedules, now) {
+		http.Error(w, "unlock only allowed during an active schedule", http.StatusBadRequest)
+		return
+	}
+
+	err := h.store.Update(func(cfg *config.Config) {
+		user := cfg.Users[name]
+		user.LockedUntil = nil
+		cfg.Users[name] = user
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.renderUserList(w)
+}
+
+func (h *handlers) addBonus(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	r.ParseForm()
+
+	minutesStr := r.FormValue("minutes")
+	minutes, err := strconv.Atoi(minutesStr)
+	if err != nil || minutes <= 0 {
+		http.Error(w, "invalid minutes", http.StatusBadRequest)
+		return
+	}
+
+	now := time.Now()
+	bonus := time.Duration(minutes) * time.Minute
+
+	err = h.store.Update(func(cfg *config.Config) {
+		user := cfg.Users[name]
+
+		// Clear lock when granting bonus
+		user.LockedUntil = nil
+
+		// Compute bonus end time
+		var bonusEnd time.Time
+		if user.BonusUntil != nil && now.Before(*user.BonusUntil) {
+			// Stack: add to existing bonus
+			bonusEnd = user.BonusUntil.Add(bonus)
+		} else if end := config.ScheduleEndTime(user, now); end != nil {
+			// In schedule: extend past schedule end
+			bonusEnd = end.Add(bonus)
+		} else {
+			// Outside schedule: start from now
+			bonusEnd = now.Add(bonus)
+		}
+
+		user.BonusUntil = &bonusEnd
+		cfg.Users[name] = user
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.renderUserList(w)
 }
 
 func (h *handlers) renderUserList(w http.ResponseWriter) {
