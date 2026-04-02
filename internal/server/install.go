@@ -88,6 +88,12 @@ if [ "$HTTP_CODE" != "200" ]; then
 fi
 chmod +x "$TMP"
 mv "$TMP" "${INSTALL_DIR}/parentald"
+
+# Fix SELinux context if SELinux is active
+if command -v restorecon &> /dev/null; then
+    restorecon -v "${INSTALL_DIR}/parentald"
+fi
+
 echo "  Installed to ${INSTALL_DIR}/parentald"
 
 # Create config directory
