@@ -1,0 +1,13 @@
+[Unit]
+Description=parentald configuration server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/parentald-server --admin-pass=${ADMIN_PASS}
+Restart=on-failure
+EnvironmentFile=-/etc/parentald/server.env
+ReadWritePaths=/etc/parentald
+
+[Install]
+WantedBy=multi-user.target

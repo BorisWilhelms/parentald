@@ -1,0 +1,12 @@
+[Unit]
+Description=parentald enforcement daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/parentald --server=${SERVER_URL}
+Restart=on-failure
+EnvironmentFile=-/etc/parentald/daemon.env
+
+[Install]
+WantedBy=multi-user.target

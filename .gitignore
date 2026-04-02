@@ -1,0 +1,6 @@
+parentald-server
+server
+daemon
+dist/
+config.json
+*.env

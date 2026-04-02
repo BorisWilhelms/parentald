@@ -1,0 +1,15 @@
+{{template "layout" .}}
+
+{{define "content"}}
+<div class="card">
+    <h2>Benutzer hinzufuegen</h2>
+    <form class="form-row" hx-post="/users" hx-target="#user-list" hx-swap="innerHTML">
+        <input type="text" name="name" placeholder="Linux-Benutzername" required>
+        <button type="submit">Hinzufuegen</button>
+    </form>
+</div>
+
+<div id="user-list">
+    {{template "user_list.html" .}}
+</div>
+{{end}}

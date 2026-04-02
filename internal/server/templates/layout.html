@@ -1,0 +1,33 @@
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>parentald</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 1rem; background: #f5f5f5; }
+        h1 { margin-bottom: 1rem; }
+        h2 { margin: 1.5rem 0 0.5rem; }
+        .card { background: white; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .form-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem; }
+        input, select, button { padding: 0.4rem 0.8rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
+        button { cursor: pointer; background: #2563eb; color: white; border: none; }
+        button:hover { background: #1d4ed8; }
+        button.danger { background: #dc2626; }
+        button.danger:hover { background: #b91c1c; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; }
+        th { font-weight: 600; }
+        .days label { margin-right: 0.5rem; }
+        .days input[type="checkbox"] { margin-right: 0.2rem; }
+    </style>
+</head>
+<body>
+    <h1>parentald</h1>
+    {{template "content" .}}
+</body>
+</html>
+{{end}}

@@ -1,0 +1,45 @@
+{{if .User.Schedules}}
+<table>
+    <thead>
+        <tr>
+            <th>Tage</th>
+            <th>Von</th>
+            <th>Bis</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range $i, $s := .User.Schedules}}
+        <tr>
+            <td>{{join $s.Days ", "}}</td>
+            <td>{{$s.From}}</td>
+            <td>{{$s.To}}</td>
+            <td>
+                <button class="danger" hx-delete="/users/{{$.Name}}/schedules/{{$i}}" hx-target="#schedules-{{$.Name}}" hx-swap="innerHTML">Loeschen</button>
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{else}}
+<p style="color: #666; margin: 0.5rem 0;">Keine Zeitfenster konfiguriert. Benutzer ist immer gesperrt.</p>
+{{end}}
+
+<details style="margin-top: 0.5rem;">
+    <summary style="cursor: pointer;">Zeitfenster hinzufuegen</summary>
+    <form class="form-row" style="margin-top: 0.5rem;" hx-post="/users/{{.Name}}/schedules" hx-target="#schedules-{{.Name}}" hx-swap="innerHTML">
+        <div class="days">
+            <label><input type="checkbox" name="days" value="mon"> Mo</label>
+            <label><input type="checkbox" name="days" value="tue"> Di</label>
+            <label><input type="checkbox" name="days" value="wed"> Mi</label>
+            <label><input type="checkbox" name="days" value="thu"> Do</label>
+            <label><input type="checkbox" name="days" value="fri"> Fr</label>
+            <label><input type="checkbox" name="days" value="sat"> Sa</label>
+            <label><input type="checkbox" name="days" value="sun"> So</label>
+        </div>
+        <input type="time" name="from" required>
+        <span>bis</span>
+        <input type="time" name="to" required>
+        <button type="submit">Hinzufuegen</button>
+    </form>
+</details>

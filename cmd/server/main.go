@@ -1,0 +1,44 @@
+package main
+
+import (
+	"flag"
+	"log"
+	"net/http"
+	"os"
+
+	"github.com/BorisWilhelms/parentald/internal/config"
+	"github.com/BorisWilhelms/parentald/internal/server"
+	"github.com/BorisWilhelms/parentald/internal/version"
+)
+
+func envOrDefault(key, fallback string) string {
+	if v, ok := os.LookupEnv(key); ok {
+		return v
+	}
+	return fallback
+}
+
+func main() {
+	configPath := flag.String("config", envOrDefault("CONFIG_PATH", "config.json"), "path to config file")
+	listen := flag.String("listen", envOrDefault("LISTEN", ":8080"), "listen address")
+	adminUser := flag.String("admin-user", envOrDefault("ADMIN_USER", "admin"), "admin username")
+	adminPass := flag.String("admin-pass", envOrDefault("ADMIN_PASS", ""), "admin password (required)")
+	binDir := flag.String("bin-dir", envOrDefault("BIN_DIR", "dist"), "directory containing daemon binaries")
+	flag.Parse()
+
+	if *adminPass == "" {
+		log.Fatal("--admin-pass or ADMIN_PASS is required")
+	}
+
+	store := config.NewStore(*configPath)
+	if err := store.Load(); err != nil {
+		log.Fatalf("failed to load config: %v", err)
+	}
+
+	handler := server.New(store, *adminUser, *adminPass, *binDir)
+
+	log.Printf("parentald-server %s listening on %s", version.Version, *listen)
+	if err := http.ListenAndServe(*listen, handler); err != nil {
+		log.Fatal(err)
+	}
+}

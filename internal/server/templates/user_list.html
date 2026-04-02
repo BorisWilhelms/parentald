@@ -1,0 +1,12 @@
+{{range $name, $user := .Users}}
+<div class="card">
+    <div class="form-row" style="justify-content: space-between;">
+        <h2>{{$name}}</h2>
+        <button class="danger" hx-delete="/users/{{$name}}" hx-target="#user-list" hx-swap="innerHTML" hx-confirm="Benutzer {{$name}} wirklich loeschen?">Loeschen</button>
+    </div>
+
+    <div id="schedules-{{$name}}">
+        {{template "user_schedules.html" (dict "Name" $name "User" $user)}}
+    </div>
+</div>
+{{end}}

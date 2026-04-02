@@ -1,0 +1,130 @@
+package server
+
+import (
+	"encoding/json"
+	"html/template"
+	"net/http"
+	"strconv"
+
+	"github.com/BorisWilhelms/parentald/internal/config"
+)
+
+type handlers struct {
+	store *config.Store
+	tmpl  *template.Template
+}
+
+func (h *handlers) index(w http.ResponseWriter, r *http.Request) {
+	cfg := h.store.Get()
+	h.tmpl.ExecuteTemplate(w, "index.html", cfg)
+}
+
+func (h *handlers) apiConfig(w http.ResponseWriter, r *http.Request) {
+	cfg := h.store.Get()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(cfg)
+}
+
+func (h *handlers) addUser(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	name := r.FormValue("name")
+	if name == "" {
+		http.Error(w, "name is required", http.StatusBadRequest)
+		return
+	}
+
+	err := h.store.Update(func(cfg *config.Config) {
+		if _, exists := cfg.Users[name]; !exists {
+			cfg.Users[name] = config.User{}
+		}
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.renderUserList(w)
+}
+
+func (h *handlers) deleteUser(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+
+	err := h.store.Update(func(cfg *config.Config) {
+		delete(cfg.Users, name)
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.renderUserList(w)
+}
+
+func (h *handlers) addSchedule(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	r.ParseForm()
+
+	days := r.Form["days"]
+	from := r.FormValue("from")
+	to := r.FormValue("to")
+
+	if len(days) == 0 || from == "" || to == "" {
+		http.Error(w, "days, from, and to are required", http.StatusBadRequest)
+		return
+	}
+
+	schedule := config.Schedule{Days: days, From: from, To: to}
+
+	err := h.store.Update(func(cfg *config.Config) {
+		user := cfg.Users[name]
+		user.Schedules = append(user.Schedules, schedule)
+		cfg.Users[name] = user
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.renderUserSchedules(w, name)
+}
+
+func (h *handlers) deleteSchedule(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	idxStr := r.PathValue("index")
+	idx, err := strconv.Atoi(idxStr)
+	if err != nil {
+		http.Error(w, "invalid index", http.StatusBadRequest)
+		return
+	}
+
+	err = h.store.Update(func(cfg *config.Config) {
+		user := cfg.Users[name]
+		if idx >= 0 && idx < len(user.Schedules) {
+			user.Schedules = append(user.Schedules[:idx], user.Schedules[idx+1:]...)
+			cfg.Users[name] = user
+		}
+	})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.renderUserSchedules(w, name)
+}
+
+func (h *handlers) renderUserList(w http.ResponseWriter) {
+	cfg := h.store.Get()
+	h.tmpl.ExecuteTemplate(w, "user_list.html", cfg)
+}
+
+func (h *handlers) renderUserSchedules(w http.ResponseWriter, username string) {
+	cfg := h.store.Get()
+	data := struct {
+		Name string
+		User config.User
+	}{
+		Name: username,
+		User: cfg.Users[username],
+	}
+	h.tmpl.ExecuteTemplate(w, "user_schedules.html", data)
+}

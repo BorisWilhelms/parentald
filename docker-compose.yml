@@ -1,0 +1,15 @@
+services:
+  server:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - ADMIN_PASS=${ADMIN_PASS:?ADMIN_PASS must be set}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+    volumes:
+      - data:/data
+    command: ["--config", "/data/config.json", "--bin-dir", "/dist"]
+    restart: unless-stopped
+
+volumes:
+  data:
