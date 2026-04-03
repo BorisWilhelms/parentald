@@ -36,7 +36,12 @@ func IsAllowed(username string, cfg Config, now time.Time) bool {
 		return true
 	}
 
-	// 3. Check schedules
+	// 3. No schedules = always allowed
+	if len(user.Schedules) == 0 {
+		return true
+	}
+
+	// 4. Check schedules
 	return IsInSchedule(user.Schedules, now)
 }
 

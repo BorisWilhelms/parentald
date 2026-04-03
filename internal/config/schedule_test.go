@@ -26,6 +26,15 @@ func TestIsAllowed_UserNotInConfig(t *testing.T) {
 	}
 }
 
+func TestIsAllowed_NoSchedules(t *testing.T) {
+	cfg := Config{Users: map[string]User{
+		"kind1": {},
+	}}
+	if !IsAllowed("kind1", cfg, time.Now()) {
+		t.Error("user with no schedules should be allowed")
+	}
+}
+
 func TestIsAllowed_WithinSchedule(t *testing.T) {
 	cfg := Config{
 		Users: map[string]User{
