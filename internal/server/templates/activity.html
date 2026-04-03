@@ -30,7 +30,7 @@
                                 {{range $apps}}
                                 <tr>
                                     <td>
-                                        {{if .Icon}}<img class="app-icon" src="{{.Icon}}">{{end}}
+                                        {{if .Icon}}<img class="app-icon" src="{{.Icon | safeURL}}">{{end}}
                                         {{.Name}}
                                     </td>
                                     <td style="text-align: right; width: 5rem;">{{formatDuration .Seconds}}</td>
@@ -50,7 +50,7 @@
                             {{range .}}
                             <tr>
                                 <td>
-                                    {{if .Icon}}<img class="app-icon" src="{{.Icon}}">{{end}}
+                                    {{if .Icon}}<img class="app-icon" src="{{.Icon | safeURL}}">{{end}}
                                     {{.Name}}
                                 </td>
                                 <td style="text-align: right; width: 5rem;">{{formatDuration .Seconds}}</td>

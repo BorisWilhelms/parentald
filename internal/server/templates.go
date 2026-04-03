@@ -16,6 +16,9 @@ var templateFS embed.FS
 
 var funcMap = template.FuncMap{
 	"join": strings.Join,
+	"safeURL": func(s string) template.URL {
+		return template.URL(s)
+	},
 	"dict": func(pairs ...any) map[string]any {
 		m := make(map[string]any, len(pairs)/2)
 		for i := 0; i < len(pairs)-1; i += 2 {
