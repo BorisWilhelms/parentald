@@ -54,18 +54,15 @@ func (t *Tracker) Tick(users []string) {
 		}
 
 		for _, exeBasename := range processes {
-			name := exeBasename
-			var category *string
-
-			if info, ok := t.desktop.Lookup(exeBasename); ok {
-				name = info.Name
-				category = info.Category
+			info, ok := t.desktop.Lookup(exeBasename)
+			if !ok {
+				continue // skip processes without a .desktop match
 			}
 
-			entry := t.accum[username][name]
+			entry := t.accum[username][info.Name]
 			if entry == nil {
-				entry = &appEntry{Category: category}
-				t.accum[username][name] = entry
+				entry = &appEntry{Category: info.Category}
+				t.accum[username][info.Name] = entry
 			}
 			entry.Seconds += seconds
 		}
