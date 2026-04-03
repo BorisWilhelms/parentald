@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -255,10 +256,16 @@ func (h *handlers) apiActivity(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+var validDate = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+
 func (h *handlers) activityPage(w http.ResponseWriter, r *http.Request) {
 	date := r.URL.Query().Get("date")
 	if date == "" {
 		date = time.Now().Format("2006-01-02")
+	}
+	if !validDate.MatchString(date) {
+		http.Error(w, "invalid date format", http.StatusBadRequest)
+		return
 	}
 
 	users, err := h.actStore.GetDay(date)
