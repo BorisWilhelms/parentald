@@ -3,6 +3,7 @@ package activity
 import (
 	"bufio"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 )
@@ -10,6 +11,7 @@ import (
 var defaultDesktopDirs = []string{
 	"/usr/share/applications",
 	"/usr/local/share/applications",
+	"/var/lib/flatpak/exports/share/applications",
 }
 
 // DesktopLookup maps executable basenames to application info from .desktop files.
@@ -18,10 +20,19 @@ type DesktopLookup struct {
 }
 
 // NewDesktopLookup scans standard .desktop file locations and builds a lookup table.
-func NewDesktopLookup() *DesktopLookup {
+// usernames are used to find per-user flatpak installs.
+func NewDesktopLookup(usernames []string) *DesktopLookup {
 	dl := &DesktopLookup{apps: make(map[string]AppInfo)}
 	for _, dir := range defaultDesktopDirs {
 		dl.scanDir(dir)
+	}
+	for _, username := range usernames {
+		u, err := user.Lookup(username)
+		if err != nil {
+			continue
+		}
+		dl.scanDir(filepath.Join(u.HomeDir, ".local", "share", "flatpak", "exports", "share", "applications"))
+		dl.scanDir(filepath.Join(u.HomeDir, ".local", "share", "applications"))
 	}
 	return dl
 }
@@ -114,7 +125,8 @@ func parseDesktopLine(line string) (key, value string, ok bool) {
 }
 
 // parseExecField extracts the executable basename from a .desktop Exec= value.
-// Handles: "env VAR=val /usr/bin/foo %u", "/usr/bin/foo --flag", "foo %F"
+// Handles: "env VAR=val /usr/bin/foo %u", "/usr/bin/foo --flag", "foo %F",
+// and flatpak: "/usr/bin/flatpak run --branch=stable com.example.App"
 func parseExecField(exec string) string {
 	fields := strings.Fields(exec)
 
@@ -136,7 +148,39 @@ func parseExecField(exec string) string {
 		return ""
 	}
 
-	return filepath.Base(fields[i])
+	cmd := filepath.Base(fields[i])
+
+	// Handle "flatpak run [options] com.example.App [args]"
+	if cmd == "flatpak" {
+		return parseFlatpakExec(fields[i+1:])
+	}
+
+	return cmd
+}
+
+// parseFlatpakExec extracts the app ID from a "flatpak run" command.
+// Returns the last component of the app ID (e.g., "Steam" from "com.valvesoftware.Steam").
+func parseFlatpakExec(args []string) string {
+	foundRun := false
+	for _, arg := range args {
+		if arg == "run" {
+			foundRun = true
+			continue
+		}
+		if !foundRun {
+			continue
+		}
+		// Skip flags
+		if strings.HasPrefix(arg, "-") || strings.HasPrefix(arg, "%") {
+			continue
+		}
+		// This should be the app ID (e.g., "com.valvesoftware.Steam")
+		parts := strings.Split(arg, ".")
+		if len(parts) >= 3 {
+			return arg // return full app ID as lookup key
+		}
+	}
+	return ""
 }
 
 // firstCategory returns the first non-empty category from a semicolon-separated list.

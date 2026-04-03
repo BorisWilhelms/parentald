@@ -22,11 +22,11 @@ type Tracker struct {
 }
 
 // NewTracker creates a Tracker that accumulates time in increments of interval.
-func NewTracker(interval time.Duration) *Tracker {
+func NewTracker(interval time.Duration, usernames []string) *Tracker {
 	hostname, _ := os.Hostname()
 	return &Tracker{
 		interval: interval,
-		desktop:  NewDesktopLookup(),
+		desktop:  NewDesktopLookup(usernames),
 		hostname: hostname,
 		accum:    make(map[string]map[string]*appEntry),
 	}

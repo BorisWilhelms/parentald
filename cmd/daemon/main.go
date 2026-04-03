@@ -31,7 +31,7 @@ func main() {
 
 	log.Printf("starting daemon version=%s server=%s interval=%s", version.Version, *serverURL, *interval)
 
-	tracker := activity.NewTracker(*interval)
+	var tracker *activity.Tracker
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
@@ -41,6 +41,7 @@ func main() {
 
 	// Run immediately on start
 	cfg := enforce(*serverURL, *denyFile)
+	tracker = ensureTracker(tracker, cfg, *interval)
 	trackAndReport(tracker, cfg, *serverURL)
 	checkUpdate(*serverURL)
 
@@ -48,6 +49,7 @@ func main() {
 		select {
 		case <-ticker.C:
 			cfg := enforce(*serverURL, *denyFile)
+			tracker = ensureTracker(tracker, cfg, *interval)
 			trackAndReport(tracker, cfg, *serverURL)
 			checkUpdate(*serverURL)
 		case <-stop:
@@ -93,6 +95,17 @@ func enforce(serverURL, denyFile string) config.Config {
 	}
 
 	return cfg
+}
+
+func ensureTracker(tracker *activity.Tracker, cfg config.Config, interval time.Duration) *activity.Tracker {
+	if tracker != nil {
+		return tracker
+	}
+	users := make([]string, 0, len(cfg.Users))
+	for username := range cfg.Users {
+		users = append(users, username)
+	}
+	return activity.NewTracker(interval, users)
 }
 
 func trackAndReport(tracker *activity.Tracker, cfg config.Config, serverURL string) {

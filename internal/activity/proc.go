@@ -49,7 +49,13 @@ func ScanUserProcesses(username string) ([]string, error) {
 		// Skip deleted binaries (e.g., "/usr/bin/foo (deleted)")
 		exe = strings.TrimSuffix(exe, " (deleted)")
 		basename := filepath.Base(exe)
-		seen[basename] = true
+
+		// Check if this is a flatpak process — use the app ID instead of bwrap/binary name
+		if flatpakID := flatpakAppID(pid); flatpakID != "" {
+			seen[flatpakID] = true
+		} else {
+			seen[basename] = true
+		}
 	}
 
 	result := make([]string, 0, len(seen))
@@ -78,6 +84,29 @@ func isOwnedBy(pid, uid int) bool {
 		}
 	}
 	return false
+}
+
+// flatpakAppID reads /proc/<pid>/cgroup to detect flatpak processes.
+// Returns the app ID (e.g., "com.valvesoftware.Steam") or empty string.
+func flatpakAppID(pid int) string {
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/cgroup", pid))
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		// Look for: "0::/user.slice/.../app-flatpak-com.valvesoftware.Steam-12345.scope"
+		if idx := strings.Index(line, "app-flatpak-"); idx >= 0 {
+			rest := line[idx+len("app-flatpak-"):]
+			// Strip the trailing instance ID and .scope
+			if scopeIdx := strings.LastIndex(rest, "-"); scopeIdx > 0 {
+				appID := rest[:scopeIdx]
+				// Unescape: flatpak uses \x2d for hyphens in cgroup names
+				appID = strings.ReplaceAll(appID, `\x2d`, "-")
+				return appID
+			}
+		}
+	}
+	return ""
 }
 
 // IsSessionActive checks if the user has at least one active (not idle, not locked) session.

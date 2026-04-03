@@ -17,6 +17,8 @@ func TestParseExecField(t *testing.T) {
 		{"/usr/lib/libreoffice/program/soffice --writer %U", "soffice"},
 		{"env BAMF_DESKTOP_FILE_HINT=/usr/share/foo.desktop /usr/bin/foo", "foo"},
 		{"env GDK_BACKEND=x11 /usr/bin/steam %U", "steam"},
+		{"/usr/bin/flatpak run --branch=stable --arch=x86_64 com.valvesoftware.Steam", "com.valvesoftware.Steam"},
+		{"/usr/bin/flatpak run com.example.App %U", "com.example.App"},
 		{"", ""},
 	}
 
