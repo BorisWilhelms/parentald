@@ -1,6 +1,4 @@
-{{define "layout"}}
-<!DOCTYPE html>
-<html lang="de">
+{{define "head"}}
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,15 +26,14 @@
         .badge-green { background: #bbf7d0; color: #166534; }
     </style>
 </head>
-<body>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h1 style="margin: 0;">parentald</h1>
-        <nav>
-            <a href="/">Benutzer</a>
-            <a href="/activity" style="margin-left: 1rem;">Aktivitaet</a>
-        </nav>
-    </div>
-    {{template "content" .}}
-</body>
-</html>
+{{end}}
+
+{{define "nav"}}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+    <h1 style="margin: 0;">parentald</h1>
+    <nav>
+        <a href="/">Benutzer</a>
+        <a href="/activity" style="margin-left: 1rem;">Aktivitaet</a>
+    </nav>
+</div>
 {{end}}
