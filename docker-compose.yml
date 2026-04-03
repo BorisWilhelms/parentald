@@ -8,7 +8,7 @@ services:
       - ADMIN_USER=${ADMIN_USER:-admin}
     volumes:
       - data:/data
-    command: ["--config", "/data/config.json", "--bin-dir", "/dist"]
+    command: ["--config", "/data/config.json", "--bin-dir", "/dist", "--data-dir", "/data"]
     restart: unless-stopped
 
 volumes:

@@ -24,6 +24,7 @@ func main() {
 	adminUser := flag.String("admin-user", envOrDefault("ADMIN_USER", "admin"), "admin username")
 	adminPass := flag.String("admin-pass", envOrDefault("ADMIN_PASS", ""), "admin password (required)")
 	binDir := flag.String("bin-dir", envOrDefault("BIN_DIR", "dist"), "directory containing daemon binaries")
+	dataDir := flag.String("data-dir", envOrDefault("DATA_DIR", "data"), "directory for activity data")
 	flag.Parse()
 
 	if *adminPass == "" {
@@ -35,7 +36,7 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	handler := server.New(store, *adminUser, *adminPass, *binDir)
+	handler := server.New(store, *adminUser, *adminPass, *binDir, *dataDir)
 
 	log.Printf("parentald-server %s listening on %s", version.Version, *listen)
 	if err := http.ListenAndServe(*listen, handler); err != nil {

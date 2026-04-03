@@ -1,0 +1,38 @@
+{{template "layout" .}}
+
+{{define "content"}}
+<div class="form-row" style="justify-content: center; margin-bottom: 1rem;">
+    <a href="/activity?date={{prevDate .Date}}"><button>&larr;</button></a>
+    <span style="font-size: 1.1rem; font-weight: 600; padding: 0 1rem;">{{.Date}}</span>
+    <a href="/activity?date={{nextDate .Date}}"><button>&rarr;</button></a>
+</div>
+
+{{if .Users}}
+    {{range $name, $ua := .Users}}
+    <div class="card">
+        <div class="form-row" style="justify-content: space-between;">
+            <h2>{{$name}}</h2>
+            <span style="color: #666;">Gesamt: {{formatDuration $ua.Total}}</span>
+        </div>
+
+        {{range $cat, $apps := $ua.ByCategory}}
+        <h3 style="margin: 0.8rem 0 0.3rem; font-size: 0.95rem; color: #555;">{{$cat}}</h3>
+        <table>
+            <tbody>
+                {{range $apps}}
+                <tr>
+                    <td>{{.Name}}</td>
+                    <td style="text-align: right; width: 6rem;">{{formatDuration .Seconds}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+        {{end}}
+    </div>
+    {{end}}
+{{else}}
+    <div class="card">
+        <p style="color: #666;">Keine Aktivitaetsdaten fuer diesen Tag.</p>
+    </div>
+{{end}}
+{{end}}

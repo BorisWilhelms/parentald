@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/BorisWilhelms/parentald/internal/activity"
 	"github.com/BorisWilhelms/parentald/internal/config"
 	"github.com/BorisWilhelms/parentald/internal/denylist"
 	"github.com/BorisWilhelms/parentald/internal/update"
@@ -29,6 +31,8 @@ func main() {
 
 	log.Printf("starting daemon version=%s server=%s interval=%s", version.Version, *serverURL, *interval)
 
+	tracker := activity.NewTracker(*interval)
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
@@ -36,13 +40,15 @@ func main() {
 	defer ticker.Stop()
 
 	// Run immediately on start
-	enforce(*serverURL, *denyFile)
+	cfg := enforce(*serverURL, *denyFile)
+	trackAndReport(tracker, cfg, *serverURL)
 	checkUpdate(*serverURL)
 
 	for {
 		select {
 		case <-ticker.C:
-			enforce(*serverURL, *denyFile)
+			cfg := enforce(*serverURL, *denyFile)
+			trackAndReport(tracker, cfg, *serverURL)
 			checkUpdate(*serverURL)
 		case <-stop:
 			log.Println("shutting down, clearing deny file")
@@ -52,11 +58,11 @@ func main() {
 	}
 }
 
-func enforce(serverURL, denyFile string) {
+func enforce(serverURL, denyFile string) config.Config {
 	cfg, err := fetchConfig(serverURL)
 	if err != nil {
 		log.Printf("failed to fetch config: %v", err)
-		return
+		return config.Config{}
 	}
 
 	now := time.Now()
@@ -71,7 +77,7 @@ func enforce(serverURL, denyFile string) {
 	added, err := denylist.Sync(denyFile, denied)
 	if err != nil {
 		log.Printf("failed to sync deny file: %v", err)
-		return
+		return cfg
 	}
 
 	for _, username := range added {
@@ -85,6 +91,45 @@ func enforce(serverURL, denyFile string) {
 	if len(denied) > 0 {
 		log.Printf("denied users: %v", denied)
 	}
+
+	return cfg
+}
+
+func trackAndReport(tracker *activity.Tracker, cfg config.Config, serverURL string) {
+	users := make([]string, 0, len(cfg.Users))
+	for username := range cfg.Users {
+		users = append(users, username)
+	}
+
+	tracker.Tick(users)
+
+	report := tracker.Flush()
+	if report == nil {
+		return
+	}
+
+	if err := sendReport(serverURL, report); err != nil {
+		log.Printf("failed to send activity report: %v", err)
+		tracker.Merge(report)
+	}
+}
+
+func sendReport(serverURL string, report *activity.Report) error {
+	data, err := json.Marshal(report)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.Post(fmt.Sprintf("%s/api/activity", serverURL), "application/json", bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func checkUpdate(serverURL string) {

@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
+	"sort"
 	"strings"
 	"time"
 
@@ -39,6 +40,36 @@ var funcMap = template.FuncMap{
 			return "unbegrenzt"
 		}
 		return fmt.Sprintf("%s %s", t.Format("02.01."), t.Format("15:04"))
+	},
+	"formatDuration": func(seconds int) string {
+		h := seconds / 3600
+		m := (seconds % 3600) / 60
+		if h > 0 {
+			return fmt.Sprintf("%dh %dm", h, m)
+		}
+		return fmt.Sprintf("%dm", m)
+	},
+	"prevDate": func(date string) string {
+		t, err := time.Parse("2006-01-02", date)
+		if err != nil {
+			return date
+		}
+		return t.AddDate(0, 0, -1).Format("2006-01-02")
+	},
+	"nextDate": func(date string) string {
+		t, err := time.Parse("2006-01-02", date)
+		if err != nil {
+			return date
+		}
+		return t.AddDate(0, 0, 1).Format("2006-01-02")
+	},
+	"sortedKeys": func(m map[string]any) []string {
+		keys := make([]string, 0, len(m))
+		for k := range m {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		return keys
 	},
 }
 

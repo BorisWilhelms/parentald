@@ -7,12 +7,14 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/BorisWilhelms/parentald/internal/activity"
 	"github.com/BorisWilhelms/parentald/internal/config"
 )
 
 type handlers struct {
-	store *config.Store
-	tmpl  *template.Template
+	store    *config.Store
+	actStore *activity.ActivityStore
+	tmpl     *template.Template
 }
 
 func (h *handlers) index(w http.ResponseWriter, r *http.Request) {
@@ -205,6 +207,44 @@ func (h *handlers) addBonus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.renderUserList(w)
+}
+
+func (h *handlers) apiActivity(w http.ResponseWriter, r *http.Request) {
+	var report activity.Report
+	if err := json.NewDecoder(r.Body).Decode(&report); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.actStore.Record(report); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *handlers) activityPage(w http.ResponseWriter, r *http.Request) {
+	date := r.URL.Query().Get("date")
+	if date == "" {
+		date = time.Now().Format("2006-01-02")
+	}
+
+	users, err := h.actStore.GetDay(date)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	data := struct {
+		Date  string
+		Users map[string]*activity.UserActivity
+	}{
+		Date:  date,
+		Users: users,
+	}
+
+	h.tmpl.ExecuteTemplate(w, "activity.html", data)
 }
 
 func (h *handlers) renderUserList(w http.ResponseWriter) {
