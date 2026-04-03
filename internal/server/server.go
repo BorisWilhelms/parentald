@@ -1,7 +1,9 @@
 package server
 
 import (
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/BorisWilhelms/parentald/internal/activity"
 	"github.com/BorisWilhelms/parentald/internal/config"
@@ -37,5 +39,24 @@ func New(store *config.Store, adminUser, adminPass, binDir, dataDir string) http
 
 	mux.Handle("/", basicAuth(protected, adminUser, adminPass))
 
-	return mux
+	return requestLogger(mux)
+}
+
+type responseRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *responseRecorder) WriteHeader(code int) {
+	r.status = code
+	r.ResponseWriter.WriteHeader(code)
+}
+
+func requestLogger(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rec := &responseRecorder{ResponseWriter: w, status: 200}
+		next.ServeHTTP(rec, r)
+		log.Printf("%s %s %d %s", r.Method, r.URL.Path, rec.status, time.Since(start).Round(time.Millisecond))
+	})
 }
