@@ -1,25 +1,35 @@
 package server
 
 import (
+	"crypto/ed25519"
 	"encoding/json"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"regexp"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/BorisWilhelms/parentald/internal/activity"
 	"github.com/BorisWilhelms/parentald/internal/config"
+	"github.com/BorisWilhelms/parentald/internal/crypto"
+	"github.com/BorisWilhelms/parentald/internal/version"
 )
 
 type handlers struct {
-	store     *config.Store
-	actStore  *activity.ActivityStore
-	tmpl      *template.Template
-	adminUser string
-	adminPass string
-	secret    string
+	store      *config.Store
+	actStore   *activity.ActivityStore
+	tmpl       *template.Template
+	adminUser  string
+	adminPass  string
+	secret     string
+	serverPub  ed25519.PublicKey
+	serverPriv ed25519.PrivateKey
+	clientsMu  sync.RWMutex
+	clients    []ed25519.PublicKey
+	clientsDir string
 }
 
 func (h *handlers) index(w http.ResponseWriter, r *http.Request) {
@@ -54,10 +64,66 @@ func (h *handlers) logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
+// configResponse is the merged config + version endpoint response.
+type configResponse struct {
+	Version string        `json:"version"`
+	Config  config.Config `json:"config"`
+}
+
 func (h *handlers) apiConfig(w http.ResponseWriter, r *http.Request) {
 	cfg := h.store.Get()
+	resp := configResponse{
+		Version: version.Version,
+		Config:  cfg,
+	}
+	body, err := json.Marshal(resp)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	sig := crypto.Sign(body, h.serverPriv)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cfg)
+	w.Header().Set("X-Signature", sig)
+	w.Write(body)
+}
+
+func (h *handlers) serverPubKey(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte(crypto.EncodePublicKey(h.serverPub)))
+}
+
+func (h *handlers) registerClient(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		PublicKey string `json:"publicKey"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	pubKey, err := crypto.DecodePublicKey(req.PublicKey)
+	if err != nil {
+		http.Error(w, "invalid public key", http.StatusBadRequest)
+		return
+	}
+
+	h.clientsMu.Lock()
+	defer h.clientsMu.Unlock()
+
+	if crypto.IsRegisteredClient(h.clients, pubKey) {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if err := crypto.RegisterClient(h.clientsDir, pubKey); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	h.clients = append(h.clients, pubKey)
+
+	log.Printf("registered new client: %s", crypto.Fingerprint(pubKey))
+	w.WriteHeader(http.StatusCreated)
 }
 
 func (h *handlers) addUser(w http.ResponseWriter, r *http.Request) {
@@ -242,8 +308,42 @@ func (h *handlers) addBonus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) apiActivity(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "failed to read body", http.StatusBadRequest)
+		return
+	}
+
+	// Verify client signature
+	sig := r.Header.Get("X-Signature")
+	pubKeyHeader := r.Header.Get("X-Public-Key")
+	if sig == "" || pubKeyHeader == "" {
+		http.Error(w, "missing signature or public key", http.StatusUnauthorized)
+		return
+	}
+
+	clientPub, err := crypto.DecodePublicKey(pubKeyHeader)
+	if err != nil {
+		http.Error(w, "invalid public key", http.StatusBadRequest)
+		return
+	}
+
+	h.clientsMu.RLock()
+	registered := crypto.IsRegisteredClient(h.clients, clientPub)
+	h.clientsMu.RUnlock()
+
+	if !registered {
+		http.Error(w, "unregistered client", http.StatusForbidden)
+		return
+	}
+
+	if !crypto.Verify(body, sig, clientPub) {
+		http.Error(w, "invalid signature", http.StatusForbidden)
+		return
+	}
+
 	var report activity.Report
-	if err := json.NewDecoder(r.Body).Decode(&report); err != nil {
+	if err := json.Unmarshal(body, &report); err != nil {
 		http.Error(w, "invalid request body", http.StatusBadRequest)
 		return
 	}

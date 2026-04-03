@@ -1,22 +1,20 @@
 package server
 
 import (
+	"crypto/ed25519"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/BorisWilhelms/parentald/internal/version"
+	"github.com/BorisWilhelms/parentald/internal/crypto"
 )
 
 type installHandlers struct {
-	binDir string
-}
-
-func (h *installHandlers) serveVersion(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain")
-	fmt.Fprint(w, version.Version)
+	binDir     string
+	serverPub  ed25519.PublicKey
+	serverPriv ed25519.PrivateKey
 }
 
 func (h *installHandlers) serveBinary(w http.ResponseWriter, r *http.Request) {
@@ -31,14 +29,25 @@ func (h *installHandlers) serveBinary(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := filepath.Join(h.binDir, fmt.Sprintf("parentald-%s-%s", goos, goarch))
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
 		http.Error(w, "binary not found for this platform", http.StatusNotFound)
 		return
+	}
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Sign the binary
+	if h.serverPriv != nil {
+		sig := crypto.Sign(data, h.serverPriv)
+		w.Header().Set("X-Signature", sig)
 	}
 
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=parentald-%s-%s", goos, goarch))
-	http.ServeFile(w, r, path)
+	w.Write(data)
 }
 
 func (h *installHandlers) serveInstallScript(w http.ResponseWriter, r *http.Request) {
@@ -50,15 +59,17 @@ func (h *installHandlers) serveInstallScript(w http.ResponseWriter, r *http.Requ
 		scheme = fwd
 	}
 	serverURL := fmt.Sprintf("%s://%s", scheme, r.Host)
+	serverPubKey := crypto.EncodePublicKey(h.serverPub)
 
 	w.Header().Set("Content-Type", "text/plain")
-	fmt.Fprintf(w, installScript, serverURL)
+	fmt.Fprintf(w, installScript, serverURL, serverPubKey)
 }
 
 const installScript = `#!/bin/bash
 set -euo pipefail
 
 SERVER_URL="%s"
+SERVER_PUBKEY="%s"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/parentald"
 SERVICE_NAME="parentald"
@@ -99,15 +110,43 @@ echo "  Installed to ${INSTALL_DIR}/parentald"
 # Create config directory
 mkdir -p "$CONFIG_DIR"
 
-# Write environment file
-if [ ! -f "${CONFIG_DIR}/daemon.env" ]; then
-    cat > "${CONFIG_DIR}/daemon.env" <<ENVEOF
+# Save server public key
+echo "$SERVER_PUBKEY" > "${CONFIG_DIR}/server.pub"
+echo "  Saved server public key"
+
+# Generate client keypair if not exists
+if [ ! -f "${CONFIG_DIR}/client.key" ]; then
+    # Use openssl to generate Ed25519 keypair, extract raw keys, base64 encode
+    TMPKEY=$(mktemp)
+    openssl genpkey -algorithm ed25519 -out "$TMPKEY" 2>/dev/null
+    # Extract raw private key (last 32 bytes of DER-encoded seed + public key = 64 bytes)
+    CLIENT_PRIV=$(openssl pkey -in "$TMPKEY" -outform DER 2>/dev/null | tail -c 64 | base64 -w0)
+    CLIENT_PUB=$(openssl pkey -in "$TMPKEY" -pubout -outform DER 2>/dev/null | tail -c 32 | base64 -w0)
+    rm -f "$TMPKEY"
+    echo "$CLIENT_PRIV" > "${CONFIG_DIR}/client.key"
+    chmod 600 "${CONFIG_DIR}/client.key"
+    echo "$CLIENT_PUB" > "${CONFIG_DIR}/client.pub"
+    echo "  Generated client keypair"
+
+    # Register with server
+    HTTP_CODE=$(curl -sS -o /dev/null -w "%%{http_code}" -X POST \
+        -H "Content-Type: application/json" \
+        -d "{\"publicKey\": \"${CLIENT_PUB}\"}" \
+        "${SERVER_URL}/api/register")
+    if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "200" ]; then
+        echo "  Registered client with server"
+    else
+        echo "Warning: failed to register client (HTTP $HTTP_CODE)"
+    fi
+else
+    echo "  Client keypair already exists, skipping"
+fi
+
+# Write environment file (always overwrite to ensure correct values)
+cat > "${CONFIG_DIR}/daemon.env" <<ENVEOF
 SERVER_URL=${SERVER_URL}
 ENVEOF
-    echo "  Created ${CONFIG_DIR}/daemon.env"
-else
-    echo "  ${CONFIG_DIR}/daemon.env already exists, skipping"
-fi
+echo "  Created ${CONFIG_DIR}/daemon.env"
 
 # Install systemd service
 cat > "/etc/systemd/system/${SERVICE_NAME}.service" <<SVCEOF

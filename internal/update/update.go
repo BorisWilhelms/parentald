@@ -1,6 +1,7 @@
 package update
 
 import (
+	"crypto/ed25519"
 	"fmt"
 	"io"
 	"net/http"
@@ -8,18 +9,14 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/BorisWilhelms/parentald/internal/crypto"
 	"github.com/BorisWilhelms/parentald/internal/version"
 )
 
-// CheckAndUpdate checks the server for a newer version and replaces the
-// current binary if one is available. Returns true if an update was applied
-// (caller should exit so systemd can restart with the new binary).
-func CheckAndUpdate(serverURL string) (bool, error) {
-	remoteVersion, err := fetchVersion(serverURL)
-	if err != nil {
-		return false, fmt.Errorf("fetch version: %w", err)
-	}
-
+// CheckAndUpdate checks if remoteVersion differs from the current version
+// and replaces the binary if so. The binary signature is verified with the
+// server's public key. Returns true if an update was applied.
+func CheckAndUpdate(serverURL, remoteVersion string, serverPub ed25519.PublicKey) (bool, error) {
 	if remoteVersion == version.Version || remoteVersion == "" {
 		return false, nil
 	}
@@ -29,12 +26,19 @@ func CheckAndUpdate(serverURL string) (bool, error) {
 		return false, fmt.Errorf("resolve executable path: %w", err)
 	}
 
-	// Download to same directory as target to avoid cross-device rename
-	binary, err := fetchBinary(serverURL, filepath.Dir(execPath))
+	targetDir := filepath.Dir(execPath)
+	binary, binaryData, err := fetchBinary(serverURL, targetDir)
 	if err != nil {
 		return false, fmt.Errorf("fetch binary: %w", err)
 	}
 	defer os.Remove(binary)
+
+	// Verify binary signature if server public key is available
+	if serverPub != nil && binaryData.signature != "" {
+		if !crypto.Verify(binaryData.content, binaryData.signature, serverPub) {
+			return false, fmt.Errorf("binary signature verification failed")
+		}
+	}
 
 	if err := os.Rename(binary, execPath); err != nil {
 		return false, fmt.Errorf("replace binary: %w", err)
@@ -43,53 +47,48 @@ func CheckAndUpdate(serverURL string) (bool, error) {
 	return true, nil
 }
 
-func fetchVersion(serverURL string) (string, error) {
-	resp, err := http.Get(fmt.Sprintf("%s/api/version", serverURL))
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("server returned %d", resp.StatusCode)
-	}
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+type binaryResult struct {
+	content   []byte
+	signature string
 }
 
-func fetchBinary(serverURL string, targetDir string) (string, error) {
+func fetchBinary(serverURL string, targetDir string) (string, binaryResult, error) {
 	url := fmt.Sprintf("%s/api/daemon/%s/%s", serverURL, runtime.GOOS, runtime.GOARCH)
 	resp, err := http.Get(url)
 	if err != nil {
-		return "", err
+		return "", binaryResult{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("server returned %d", resp.StatusCode)
+		return "", binaryResult{}, fmt.Errorf("server returned %d", resp.StatusCode)
+	}
+
+	content, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", binaryResult{}, err
 	}
 
 	tmp, err := os.CreateTemp(targetDir, "parentald-update-*")
 	if err != nil {
-		return "", err
+		return "", binaryResult{}, err
 	}
 
-	if _, err := io.Copy(tmp, resp.Body); err != nil {
+	if _, err := tmp.Write(content); err != nil {
 		tmp.Close()
 		os.Remove(tmp.Name())
-		return "", err
+		return "", binaryResult{}, err
 	}
 
 	if err := tmp.Chmod(0755); err != nil {
 		tmp.Close()
 		os.Remove(tmp.Name())
-		return "", err
+		return "", binaryResult{}, err
 	}
 
 	tmp.Close()
-	return tmp.Name(), nil
+	return tmp.Name(), binaryResult{
+		content:   content,
+		signature: resp.Header.Get("X-Signature"),
+	}, nil
 }
