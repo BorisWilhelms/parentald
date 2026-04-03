@@ -10,8 +10,18 @@ import (
 	"strings"
 )
 
-// ScanUserProcesses returns the deduplicated set of executable basenames
-// for all processes owned by the given user.
+type processInfo struct {
+	pid      int
+	ppid     int
+	exe      string
+	children []*processInfo
+}
+
+// ScanUserProcesses returns the deduplicated set of top-level app names
+// for all processes owned by the given user. It builds a process tree and
+// returns only direct children of session roots (e.g., children of
+// "systemd --user"), collapsing all descendant processes into their
+// top-level ancestor.
 func ScanUserProcesses(username string) ([]string, error) {
 	u, err := user.Lookup(username)
 	if err != nil {
@@ -22,12 +32,20 @@ func ScanUserProcesses(username string) ([]string, error) {
 		return nil, fmt.Errorf("parse uid %s: %w", u.Uid, err)
 	}
 
+	tree := buildProcessTree(uid)
+	return findTopLevelApps(tree, uid), nil
+}
+
+// buildProcessTree scans /proc and builds a tree of processes owned by the given UID.
+func buildProcessTree(uid int) map[int]*processInfo {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
-		return nil, fmt.Errorf("read /proc: %w", err)
+		return nil
 	}
 
-	seen := make(map[string]bool)
+	procs := make(map[int]*processInfo)
+
+	// First pass: collect all user processes
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -37,24 +55,49 @@ func ScanUserProcesses(username string) ([]string, error) {
 			continue
 		}
 
-		if !isOwnedBy(pid, uid) {
+		procUID, ppid := readUIDAndPPID(pid)
+		if procUID != uid {
 			continue
 		}
 
 		exe, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", pid))
 		if err != nil {
-			continue // kernel thread, zombie, or permission issue
+			continue
+		}
+		exe = strings.TrimSuffix(exe, " (deleted)")
+
+		procs[pid] = &processInfo{
+			pid:  pid,
+			ppid: ppid,
+			exe:  filepath.Base(exe),
+		}
+	}
+
+	// Second pass: build parent-child relationships
+	for _, proc := range procs {
+		if parent, ok := procs[proc.ppid]; ok {
+			parent.children = append(parent.children, proc)
+		}
+	}
+
+	return procs
+}
+
+// findTopLevelApps finds session roots and returns their direct children's exe names.
+// A session root is a user process whose parent is NOT owned by the same user.
+func findTopLevelApps(procs map[int]*processInfo, uid int) []string {
+	seen := make(map[string]bool)
+
+	for _, proc := range procs {
+		// Session root: parent is not in our process map (not owned by this user)
+		if _, parentIsOurs := procs[proc.ppid]; parentIsOurs {
+			continue
 		}
 
-		// Skip deleted binaries (e.g., "/usr/bin/foo (deleted)")
-		exe = strings.TrimSuffix(exe, " (deleted)")
-		basename := filepath.Base(exe)
-
-		// Check if this is a flatpak process — use the app ID instead of bwrap/binary name
-		if flatpakID := flatpakAppID(pid); flatpakID != "" {
-			seen[flatpakID] = true
-		} else {
-			seen[basename] = true
+		// This is a session root — collect its direct children as top-level apps
+		for _, child := range proc.children {
+			name := resolveAppName(child)
+			seen[name] = true
 		}
 	}
 
@@ -62,28 +105,60 @@ func ScanUserProcesses(username string) ([]string, error) {
 	for name := range seen {
 		result = append(result, name)
 	}
-	return result, nil
+	return result
 }
 
-// isOwnedBy checks if a process is owned by the given UID.
-func isOwnedBy(pid, uid int) bool {
+// resolveAppName determines the app name for a top-level process.
+// Checks the process and all descendants for flatpak cgroup markers.
+func resolveAppName(proc *processInfo) string {
+	if flatpakID := findFlatpakInSubtree(proc); flatpakID != "" {
+		return flatpakID
+	}
+	return proc.exe
+}
+
+// findFlatpakInSubtree checks a process and all its descendants for a flatpak app ID.
+func findFlatpakInSubtree(proc *processInfo) string {
+	if id := flatpakAppID(proc.pid); id != "" {
+		return id
+	}
+	for _, child := range proc.children {
+		if id := findFlatpakInSubtree(child); id != "" {
+			return id
+		}
+	}
+	return ""
+}
+
+// readUIDAndPPID reads the UID and PPID from /proc/<pid>/status.
+func readUIDAndPPID(pid int) (uid, ppid int) {
 	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", pid))
 	if err != nil {
-		return false
+		return -1, -1
 	}
+	uid = -1
+	ppid = -1
 	for _, line := range strings.Split(string(data), "\n") {
 		if strings.HasPrefix(line, "Uid:") {
 			fields := strings.Fields(line)
 			if len(fields) >= 2 {
-				processUID, err := strconv.Atoi(fields[1])
-				if err != nil {
-					return false
-				}
-				return processUID == uid
+				uid, _ = strconv.Atoi(fields[1])
+			}
+		}
+		if strings.HasPrefix(line, "PPid:") {
+			fields := strings.Fields(line)
+			if len(fields) >= 2 {
+				ppid, _ = strconv.Atoi(fields[1])
 			}
 		}
 	}
-	return false
+	return uid, ppid
+}
+
+// isOwnedBy checks if a process is owned by the given UID.
+func isOwnedBy(pid, uid int) bool {
+	procUID, _ := readUIDAndPPID(pid)
+	return procUID == uid
 }
 
 // flatpakAppID reads /proc/<pid>/cgroup to detect flatpak processes.
