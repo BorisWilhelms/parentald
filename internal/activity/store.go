@@ -72,6 +72,9 @@ func (s *ActivityStore) Record(report Report) error {
 			if app.Category != nil {
 				existing.Category = app.Category
 			}
+			if app.Icon != nil {
+				existing.Icon = app.Icon
+			}
 		}
 	}
 
@@ -105,10 +108,14 @@ func (s *ActivityStore) GetDay(date string) (map[string]*UserActivity, error) {
 					existing = &AppTime{
 						Name:     app.Name,
 						Category: app.Category,
+						Icon:     app.Icon,
 					}
 					ua.Apps[app.Name] = existing
 				}
 				existing.Seconds += app.Seconds
+				if app.Icon != nil {
+					existing.Icon = app.Icon
+				}
 			}
 		}
 	}

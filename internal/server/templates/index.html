@@ -1,19 +1,21 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="auto">
 {{template "head"}}
 <body>
-    {{template "nav"}}
+    <main class="container">
+        {{template "nav"}}
 
-    <div class="card">
-        <h2>Benutzer hinzufuegen</h2>
-        <form class="form-row" hx-post="/users" hx-target="#user-list" hx-swap="innerHTML">
-            <input type="text" name="name" placeholder="Linux-Benutzername" required>
-            <button type="submit">Hinzufuegen</button>
-        </form>
-    </div>
+        <article>
+            <header><strong>Benutzer hinzufügen</strong></header>
+            <form role="group" hx-post="/users" hx-target="#user-list" hx-swap="innerHTML">
+                <input type="text" name="name" placeholder="Linux-Benutzername" required>
+                <button type="submit">Hinzufügen</button>
+            </form>
+        </article>
 
-    <div id="user-list">
-        {{template "user_list.html" .}}
-    </div>
+        <div id="user-list">
+            {{template "user_list.html" .}}
+        </div>
+    </main>
 </body>
 </html>

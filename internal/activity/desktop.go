@@ -2,6 +2,8 @@ package activity
 
 import (
 	"bufio"
+	"encoding/base64"
+	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -60,7 +62,7 @@ func (dl *DesktopLookup) parseFile(path string) {
 	}
 	defer f.Close()
 
-	var name, execField, categories string
+	var name, execField, categories, iconName string
 	inDesktopEntry := false
 
 	scanner := bufio.NewScanner(f)
@@ -92,6 +94,8 @@ func (dl *DesktopLookup) parseFile(path string) {
 				execField = v
 			case "Categories":
 				categories = v
+			case "Icon":
+				iconName = v
 			}
 		}
 	}
@@ -110,6 +114,11 @@ func (dl *DesktopLookup) parseFile(path string) {
 		cat := firstCategory(categories)
 		if cat != "" {
 			info.Category = &cat
+		}
+	}
+	if iconName != "" {
+		if dataURI := resolveIcon(iconName); dataURI != "" {
+			info.Icon = &dataURI
 		}
 	}
 
@@ -181,6 +190,68 @@ func parseFlatpakExec(args []string) string {
 		}
 	}
 	return ""
+}
+
+// Icon search directories, in priority order.
+var iconSearchDirs = []string{
+	"/usr/share/icons/hicolor/48x48/apps",
+	"/usr/share/icons/hicolor/64x64/apps",
+	"/usr/share/icons/hicolor/scalable/apps",
+	"/usr/share/icons/hicolor/256x256/apps",
+	"/usr/share/icons/hicolor/128x128/apps",
+	"/usr/share/pixmaps",
+	"/var/lib/flatpak/exports/share/icons/hicolor/64x64/apps",
+	"/var/lib/flatpak/exports/share/icons/hicolor/48x48/apps",
+	"/var/lib/flatpak/exports/share/icons/hicolor/scalable/apps",
+	"/var/lib/flatpak/exports/share/icons/hicolor/128x128/apps",
+}
+
+// resolveIcon finds an icon file and returns it as a data URI.
+// iconName can be an absolute path or a theme icon name (e.g., "firefox").
+func resolveIcon(iconName string) string {
+	// If it's an absolute path, read directly
+	if filepath.IsAbs(iconName) {
+		return readIconAsDataURI(iconName)
+	}
+
+	// Search in standard directories
+	for _, dir := range iconSearchDirs {
+		// Try exact name with extensions
+		for _, ext := range []string{".png", ".svg", ".xpm"} {
+			path := filepath.Join(dir, iconName+ext)
+			if uri := readIconAsDataURI(path); uri != "" {
+				return uri
+			}
+		}
+		// Try exact name (might already have extension)
+		path := filepath.Join(dir, iconName)
+		if uri := readIconAsDataURI(path); uri != "" {
+			return uri
+		}
+	}
+
+	return ""
+}
+
+func readIconAsDataURI(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+
+	// Limit icon size to 32KB to avoid bloating reports
+	if len(data) > 32*1024 {
+		return ""
+	}
+
+	mime := "image/png"
+	if strings.HasSuffix(path, ".svg") {
+		mime = "image/svg+xml"
+	} else if strings.HasSuffix(path, ".xpm") {
+		return "" // skip xpm, not useful for web
+	}
+
+	return fmt.Sprintf("data:%s;base64,%s", mime, base64.StdEncoding.EncodeToString(data))
 }
 
 // mainCategories are the freedesktop.org Main Categories.

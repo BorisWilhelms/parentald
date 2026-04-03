@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="auto">
+{{template "head"}}
+<body>
+    <main class="container" style="max-width: 400px; margin-top: 10vh;">
+        <article>
+            <h2>parentald</h2>
+            {{if .}}{{with .Error}}
+            <p style="color: var(--pico-del-color);">{{.}}</p>
+            {{end}}{{end}}
+            <form method="POST" action="/login">
+                <label>
+                    Benutzername
+                    <input type="text" name="username" required autofocus>
+                </label>
+                <label>
+                    Passwort
+                    <input type="password" name="password" required>
+                </label>
+                <button type="submit">Anmelden</button>
+            </form>
+        </article>
+    </main>
+</body>
+</html>

@@ -2,38 +2,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/icon.svg">
     <title>parentald</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 1rem; background: #f5f5f5; }
-        h1 { margin-bottom: 1rem; }
-        h2 { margin: 1.5rem 0 0.5rem; }
-        .card { background: white; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .form-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem; }
-        input, select, button { padding: 0.4rem 0.8rem; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
-        button { cursor: pointer; background: #2563eb; color: white; border: none; }
-        button:hover { background: #1d4ed8; }
-        button.danger { background: #dc2626; }
-        button.danger:hover { background: #b91c1c; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #eee; }
-        th { font-weight: 600; }
-        .days label { margin-right: 0.5rem; }
-        .days input[type="checkbox"] { margin-right: 0.2rem; }
-        .badge { font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: normal; vertical-align: middle; }
-        .badge-red { background: #fecaca; color: #991b1b; }
-        .badge-green { background: #bbf7d0; color: #166534; }
+        :root {
+            --pico-font-size: 92%;
+            --pico-primary: #6366f1;
+            --pico-primary-hover: #4f46e5;
+            --pico-primary-focus: rgba(99, 102, 241, 0.25);
+            --pico-primary-inverse: #fff;
+        }
+        [data-theme="dark"] {
+            --pico-primary: #818cf8;
+            --pico-primary-hover: #a5b4fc;
+            --pico-primary-focus: rgba(129, 140, 248, 0.25);
+        }
+        nav {
+            background: var(--pico-primary);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        nav a, nav strong { color: #fff !important; }
+        nav a:hover { color: rgba(255,255,255,0.8) !important; }
+        mark.locked { background: #fecaca; color: #991b1b; font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; }
+        mark.bonus { background: #bbf7d0; color: #166534; font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; }
+        .app-icon { width: 24px; height: 24px; vertical-align: middle; margin-right: 0.4rem; }
+        .days-inline label { display: inline-block; margin-right: 0.75rem; }
+        .days-inline input[type="checkbox"] { margin-right: 0.2rem; }
+        article { background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); }
+        article header { background: color-mix(in srgb, var(--pico-primary) 8%, transparent); border-bottom: 2px solid var(--pico-primary); margin: -1rem -1rem 1rem -1rem; padding: 0.75rem 1rem; border-radius: 0.35rem 0.35rem 0 0; }
+        details summary { font-weight: 600; }
+        button.contrast { --pico-contrast: #dc2626; --pico-contrast-hover: #b91c1c; }
     </style>
 </head>
 {{end}}
 
 {{define "nav"}}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-    <h1 style="margin: 0;">parentald</h1>
-    <nav>
-        <a href="/">Benutzer</a>
-        <a href="/activity" style="margin-left: 1rem;">Aktivitaet</a>
-    </nav>
-</div>
+<nav>
+    <ul>
+        <li><strong>parentald</strong></li>
+    </ul>
+    <ul>
+        <li><a href="/">Benutzer</a></li>
+        <li><a href="/activity">Aktivität</a></li>
+        <li><a href="/logout">Abmelden</a></li>
+        <li><a href="#" onclick="toggleTheme()" id="theme-toggle">🌙</a></li>
+    </ul>
+</nav>
+<script>
+function toggleTheme() {
+    const html = document.documentElement;
+    const current = html.getAttribute('data-theme');
+    const next = current === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+    document.getElementById('theme-toggle').textContent = next === 'dark' ? '☀️' : '🌙';
+}
+(function() {
+    const saved = localStorage.getItem('theme');
+    if (saved) {
+        document.documentElement.setAttribute('data-theme', saved);
+        const el = document.getElementById('theme-toggle');
+        if (el) el.textContent = saved === 'dark' ? '☀️' : '🌙';
+    }
+})();
+</script>
 {{end}}

@@ -10,6 +10,7 @@ type Report struct {
 type AppTime struct {
 	Name     string  `json:"name"`
 	Category *string `json:"category,omitempty"`
+	Icon     *string `json:"icon,omitempty"`
 	Seconds  int     `json:"seconds"`
 }
 
@@ -17,4 +18,5 @@ type AppTime struct {
 type AppInfo struct {
 	Name     string
 	Category *string
+	Icon     *string // data URI (e.g., "data:image/png;base64,...")
 }

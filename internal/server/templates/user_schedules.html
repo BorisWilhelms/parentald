@@ -15,20 +15,20 @@
             <td>{{$s.From}}</td>
             <td>{{$s.To}}</td>
             <td>
-                <button class="danger" hx-delete="/users/{{$.Name}}/schedules/{{$i}}" hx-target="#schedules-{{$.Name}}" hx-swap="innerHTML">Loeschen</button>
+                <button class="outline secondary" style="width: auto; margin: 0; padding: 0.2rem 0.6rem;" hx-delete="/users/{{$.Name}}/schedules/{{$i}}" hx-target="#schedules-{{$.Name}}" hx-swap="innerHTML">Löschen</button>
             </td>
         </tr>
         {{end}}
     </tbody>
 </table>
 {{else}}
-<p style="color: #666; margin: 0.5rem 0;">Keine Zeitfenster konfiguriert. Benutzer ist nicht eingeschraenkt.</p>
+<p><small>Keine Zeitfenster konfiguriert. Benutzer ist nicht eingeschränkt.</small></p>
 {{end}}
 
-<details style="margin-top: 0.5rem;">
-    <summary style="cursor: pointer;">Zeitfenster hinzufuegen</summary>
-    <form class="form-row" style="margin-top: 0.5rem;" hx-post="/users/{{.Name}}/schedules" hx-target="#schedules-{{.Name}}" hx-swap="innerHTML">
-        <div class="days">
+<details>
+    <summary role="button" class="outline">Zeitfenster hinzufügen</summary>
+    <form hx-post="/users/{{.Name}}/schedules" hx-target="#schedules-{{.Name}}" hx-swap="innerHTML" style="margin-top: 0.75rem;">
+        <fieldset class="days-inline">
             <label><input type="checkbox" name="days" value="mon"> Mo</label>
             <label><input type="checkbox" name="days" value="tue"> Di</label>
             <label><input type="checkbox" name="days" value="wed"> Mi</label>
@@ -36,10 +36,12 @@
             <label><input type="checkbox" name="days" value="fri"> Fr</label>
             <label><input type="checkbox" name="days" value="sat"> Sa</label>
             <label><input type="checkbox" name="days" value="sun"> So</label>
+        </fieldset>
+        <div role="group">
+            <input type="time" name="from" required>
+            <span style="padding: 0 0.25rem;">bis</span>
+            <input type="time" name="to" required>
+            <button type="submit">Hinzufügen</button>
         </div>
-        <input type="time" name="from" required>
-        <span>bis</span>
-        <input type="time" name="to" required>
-        <button type="submit">Hinzufuegen</button>
     </form>
 </details>

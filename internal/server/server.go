@@ -13,7 +13,14 @@ import (
 func New(store *config.Store, adminUser, adminPass, binDir, dataDir string) http.Handler {
 	tmpl := parseTemplates()
 	actStore := activity.NewActivityStore(dataDir + "/activity")
-	h := &handlers{store: store, actStore: actStore, tmpl: tmpl}
+	h := &handlers{
+		store:     store,
+		actStore:  actStore,
+		tmpl:      tmpl,
+		adminUser: adminUser,
+		adminPass: adminPass,
+		secret:    adminPass, // use admin password as HMAC secret
+	}
 	ih := &installHandlers{binDir: binDir}
 
 	mux := http.NewServeMux()
@@ -25,7 +32,16 @@ func New(store *config.Store, adminUser, adminPass, binDir, dataDir string) http
 	mux.HandleFunc("GET /api/daemon/{os}/{arch}", ih.serveBinary)
 	mux.HandleFunc("GET /install", ih.serveInstallScript)
 
-	// Protected routes (Basic Auth) — used by admin UI
+	// Static assets (no auth)
+	mux.Handle("GET /manifest.json", staticHandler())
+	mux.Handle("GET /icon.svg", staticHandler())
+
+	// Login/logout (no auth)
+	mux.HandleFunc("GET /login", h.loginPage)
+	mux.HandleFunc("POST /login", h.loginSubmit)
+	mux.HandleFunc("GET /logout", h.logout)
+
+	// Protected routes (cookie auth) — used by admin UI
 	protected := http.NewServeMux()
 	protected.HandleFunc("GET /", h.index)
 	protected.HandleFunc("GET /activity", h.activityPage)
@@ -37,7 +53,7 @@ func New(store *config.Store, adminUser, adminPass, binDir, dataDir string) http
 	protected.HandleFunc("POST /users/{name}/unlock", h.unlockUser)
 	protected.HandleFunc("POST /users/{name}/bonus", h.addBonus)
 
-	mux.Handle("/", basicAuth(protected, adminUser, adminPass))
+	mux.Handle("/", cookieAuth(protected, h.secret))
 
 	return requestLogger(mux)
 }

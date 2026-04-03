@@ -1,32 +1,33 @@
 {{range $name, $user := .Users}}
-<div class="card">
-    <div class="form-row" style="justify-content: space-between;">
-        <h2>
-            {{$name}}
-            {{if isLocked $user}}<span class="badge badge-red">Gesperrt bis {{formatUntil $user.LockedUntil}}</span>
-            {{else if hasBonus $user}}<span class="badge badge-green">Bonus bis {{formatUntil $user.BonusUntil}}</span>
-            {{end}}
-        </h2>
-        <button class="danger" hx-delete="/users/{{$name}}" hx-target="#user-list" hx-swap="innerHTML" hx-confirm="Benutzer {{$name}} wirklich loeschen?">Loeschen</button>
-    </div>
+<article>
+    <header>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <strong style="font-size: 1.1rem;">
+                {{$name}}
+                {{if isLocked $user}}<mark class="locked">Gesperrt bis {{formatUntil $user.LockedUntil}}</mark>
+                {{else if hasBonus $user}}<mark class="bonus">Bonus bis {{formatUntil $user.BonusUntil}}</mark>
+                {{end}}
+            </strong>
+            <button class="outline secondary" style="width: auto; margin: 0; padding: 0.25rem 0.75rem;" hx-delete="/users/{{$name}}" hx-target="#user-list" hx-swap="innerHTML" hx-confirm="Benutzer {{$name}} wirklich löschen?">Löschen</button>
+        </div>
+    </header>
 
-    <div class="form-row" style="gap: 0.5rem; margin-bottom: 0.5rem;">
+    <div role="group" style="margin-bottom: 1rem;">
         {{if isLocked $user}}
             {{if isInSchedule $user}}
-            <button hx-post="/users/{{$name}}/unlock" hx-target="#user-list" hx-swap="innerHTML">Entsperren</button>
+            <button class="outline" hx-post="/users/{{$name}}/unlock" hx-target="#user-list" hx-swap="innerHTML">Entsperren</button>
             {{end}}
         {{else}}
-            <button class="danger" hx-post="/users/{{$name}}/lock" hx-target="#user-list" hx-swap="innerHTML">Sperren</button>
+            <button class="outline contrast" hx-post="/users/{{$name}}/lock" hx-target="#user-list" hx-swap="innerHTML">Sperren</button>
         {{end}}
-        <form class="form-row" style="margin: 0;" hx-post="/users/{{$name}}/bonus" hx-target="#user-list" hx-swap="innerHTML">
+        <form role="group" style="margin: 0;" hx-post="/users/{{$name}}/bonus" hx-target="#user-list" hx-swap="innerHTML">
             <input type="number" name="minutes" min="1" value="15" style="width: 5rem;">
-            <span>Min.</span>
-            <button type="submit">Bonus geben</button>
+            <button type="submit" class="outline">Bonus</button>
         </form>
     </div>
 
     <div id="schedules-{{$name}}">
         {{template "user_schedules.html" (dict "Name" $name "User" $user)}}
     </div>
-</div>
+</article>
 {{end}}

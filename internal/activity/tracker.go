@@ -8,6 +8,7 @@ import (
 
 type appEntry struct {
 	Category *string
+	Icon     *string
 	Seconds  int
 }
 
@@ -57,14 +58,17 @@ func (t *Tracker) Tick(users []string) {
 			name := exeBasename
 			var category *string
 
+			var icon *string
+
 			if info, ok := t.desktop.Lookup(exeBasename); ok {
 				name = info.Name
 				category = info.Category
+				icon = info.Icon
 			}
 
 			entry := t.accum[username][name]
 			if entry == nil {
-				entry = &appEntry{Category: category}
+				entry = &appEntry{Category: category, Icon: icon}
 				t.accum[username][name] = entry
 			}
 			entry.Seconds += seconds
@@ -91,6 +95,7 @@ func (t *Tracker) Flush() *Report {
 			report.Users[username] = append(report.Users[username], AppTime{
 				Name:     name,
 				Category: entry.Category,
+				Icon:     entry.Icon,
 				Seconds:  entry.Seconds,
 			})
 		}
@@ -116,7 +121,7 @@ func (t *Tracker) Merge(report *Report) {
 		for _, app := range apps {
 			entry := t.accum[username][app.Name]
 			if entry == nil {
-				entry = &appEntry{Category: app.Category}
+				entry = &appEntry{Category: app.Category, Icon: app.Icon}
 				t.accum[username][app.Name] = entry
 			}
 			entry.Seconds += app.Seconds

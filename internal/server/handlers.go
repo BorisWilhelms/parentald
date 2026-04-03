@@ -13,9 +13,12 @@ import (
 )
 
 type handlers struct {
-	store    *config.Store
-	actStore *activity.ActivityStore
-	tmpl     *template.Template
+	store     *config.Store
+	actStore  *activity.ActivityStore
+	tmpl      *template.Template
+	adminUser string
+	adminPass string
+	secret    string
 }
 
 func (h *handlers) index(w http.ResponseWriter, r *http.Request) {
@@ -23,6 +26,31 @@ func (h *handlers) index(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmpl.ExecuteTemplate(w, "index.html", cfg); err != nil {
 		log.Printf("template error (index.html): %v", err)
 	}
+}
+
+func (h *handlers) loginPage(w http.ResponseWriter, r *http.Request) {
+	h.tmpl.ExecuteTemplate(w, "login.html", nil)
+}
+
+func (h *handlers) loginSubmit(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	username := r.FormValue("username")
+	password := r.FormValue("password")
+
+	if username != h.adminUser || password != h.adminPass {
+		if err := h.tmpl.ExecuteTemplate(w, "login.html", map[string]string{"Error": "Ungültige Anmeldedaten"}); err != nil {
+			log.Printf("template error (login.html): %v", err)
+		}
+		return
+	}
+
+	http.SetCookie(w, createSessionCookie(username, h.secret))
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func (h *handlers) logout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, clearSessionCookie())
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 func (h *handlers) apiConfig(w http.ResponseWriter, r *http.Request) {
