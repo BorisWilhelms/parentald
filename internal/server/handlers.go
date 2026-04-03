@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"html/template"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -19,7 +20,9 @@ type handlers struct {
 
 func (h *handlers) index(w http.ResponseWriter, r *http.Request) {
 	cfg := h.store.Get()
-	h.tmpl.ExecuteTemplate(w, "index.html", cfg)
+	if err := h.tmpl.ExecuteTemplate(w, "index.html", cfg); err != nil {
+		log.Printf("template error (index.html): %v", err)
+	}
 }
 
 func (h *handlers) apiConfig(w http.ResponseWriter, r *http.Request) {
@@ -244,12 +247,16 @@ func (h *handlers) activityPage(w http.ResponseWriter, r *http.Request) {
 		Users: users,
 	}
 
-	h.tmpl.ExecuteTemplate(w, "activity.html", data)
+	if err := h.tmpl.ExecuteTemplate(w, "activity.html", data); err != nil {
+		log.Printf("template error (activity.html): %v", err)
+	}
 }
 
 func (h *handlers) renderUserList(w http.ResponseWriter) {
 	cfg := h.store.Get()
-	h.tmpl.ExecuteTemplate(w, "user_list.html", cfg)
+	if err := h.tmpl.ExecuteTemplate(w, "user_list.html", cfg); err != nil {
+		log.Printf("template error (user_list.html): %v", err)
+	}
 }
 
 func (h *handlers) renderUserSchedules(w http.ResponseWriter, username string) {
@@ -261,5 +268,7 @@ func (h *handlers) renderUserSchedules(w http.ResponseWriter, username string) {
 		Name: username,
 		User: cfg.Users[username],
 	}
-	h.tmpl.ExecuteTemplate(w, "user_schedules.html", data)
+	if err := h.tmpl.ExecuteTemplate(w, "user_schedules.html", data); err != nil {
+		log.Printf("template error (user_schedules.html): %v", err)
+	}
 }
