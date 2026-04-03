@@ -19,17 +19,33 @@
             </div>
 
             {{range $cat, $apps := $ua.ByCategory}}
-            <h3 style="margin: 0.8rem 0 0.3rem; font-size: 0.95rem; color: #555;">{{$cat}} <span style="font-weight: normal; color: #888;">{{formatDuration (index $ua.CategoryTotals $cat)}}</span></h3>
-            <table>
-                <tbody>
-                    {{range $apps}}
-                    <tr>
-                        <td>{{.Name}}</td>
-                        <td style="text-align: right; width: 6rem;">{{formatDuration .Seconds}}</td>
-                    </tr>
-                    {{end}}
-                </tbody>
-            </table>
+                {{if eq $cat "Sonstiges"}}
+                <details style="margin-top: 0.5rem;">
+                    <summary style="cursor: pointer; font-size: 0.95rem; color: #555;">Sonstiges <span style="color: #888;">{{formatDuration (index $ua.CategoryTotals $cat)}}</span></summary>
+                    <table>
+                        <tbody>
+                            {{range $apps}}
+                            <tr>
+                                <td style="color: #888;">{{.Name}}</td>
+                                <td style="text-align: right; width: 6rem; color: #888;">{{formatDuration .Seconds}}</td>
+                            </tr>
+                            {{end}}
+                        </tbody>
+                    </table>
+                </details>
+                {{else}}
+                <h3 style="margin: 0.8rem 0 0.3rem; font-size: 0.95rem; color: #555;">{{$cat}} <span style="font-weight: normal; color: #888;">{{formatDuration (index $ua.CategoryTotals $cat)}}</span></h3>
+                <table>
+                    <tbody>
+                        {{range $apps}}
+                        <tr>
+                            <td>{{.Name}}</td>
+                            <td style="text-align: right; width: 6rem;">{{formatDuration .Seconds}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+                {{end}}
             {{end}}
         </div>
         {{end}}
