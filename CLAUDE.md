@@ -23,6 +23,20 @@ Communication: daemon polls server (`GET /api/config`, `POST /api/activity`, `GE
 - `loginctl terminate-user` ends active sessions
 - Priority: Lock > Bonus > No-schedules-means-allowed > Schedule
 
+## Activity tracking
+
+**Process tree grouping**: The daemon builds a process tree per user via `/proc`. Only direct children of session roots (e.g., children of `systemd --user`) are reported as top-level apps. All descendants are collapsed into their ancestor. This reduces ~80 raw processes to ~10-15 actual apps.
+
+**App identification**: `.desktop` files are parsed at daemon startup for `Name=`, `Exec=`, `Categories=`, `Icon=`. Lookup is by exe basename. Processes without a `.desktop` match are reported as "Sonstiges" (uncategorized).
+
+**Flatpak**: Detected via `/proc/<pid>/cgroup` (`app-flatpak-<appid>` pattern). Desktop files searched in `/var/lib/flatpak/exports/share/` and `~/.local/share/flatpak/exports/share/`. `Exec=flatpak run ...` is parsed to extract the app ID.
+
+**Categories**: Uses freedesktop.org main categories (Game, Network, Office, etc.). Toolkit markers (GNOME, GTK, KDE, Qt) are skipped — first main category wins.
+
+**Icons**: Resolved from `/usr/share/icons/hicolor/` (48x48 preferred), flatpak exports, and `/usr/share/pixmaps/`. Encoded as base64 data URIs, max 32KB per icon. Sent with activity reports and stored in per-day JSON.
+
+**Activity storage**: One JSON file per day in `<data-dir>/activity/`. Keyed by hostname → user → app name. Server aggregates across hosts for UI display.
+
 ## Build
 
 ```
