@@ -63,12 +63,14 @@ func (s *ActivityStore) Record(report Report) error {
 			existing := day.Hosts[hostname][username][app.Name]
 			if existing == nil {
 				existing = &AppTime{
-					Name:     app.Name,
-					Category: app.Category,
+					Name: app.Name,
 				}
 				day.Hosts[hostname][username][app.Name] = existing
 			}
 			existing.Seconds += app.Seconds
+			if app.Category != nil {
+				existing.Category = app.Category
+			}
 		}
 	}
 
