@@ -5,7 +5,8 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/parentald --server=${SERVER_URL}
-Restart=on-failure
+Restart=always
+RestartSec=5
 EnvironmentFile=-/etc/parentald/daemon.env
 
 [Install]

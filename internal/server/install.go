@@ -118,7 +118,8 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=${INSTALL_DIR}/parentald --server=\${SERVER_URL}
-Restart=on-failure
+Restart=always
+RestartSec=5
 EnvironmentFile=-${CONFIG_DIR}/daemon.env
 
 [Install]
