@@ -13,13 +13,14 @@ import (
 // DayActivity holds all activity data for a single day.
 type DayActivity struct {
 	// hostname -> user -> appName -> AppTime
-	Hosts map[string]map[string]map[string]*AppTime `json:"hosts"`
+	Hosts      map[string]map[string]map[string]*AppTime `json:"hosts"`
+	ScreenTime map[string]map[string]int                  `json:"screenTime,omitempty"` // hostname -> user -> seconds
 }
 
 // UserActivity is a flattened view for the UI (aggregated across hosts).
 type UserActivity struct {
 	Apps           map[string]*AppTime
-	Total          int // only categorized apps (excludes "Other")
+	ScreenTime     int // active session time (not sum of apps)
 	ByCategory     map[string][]*AppTime
 	CategoryTotals map[string]int
 }
@@ -90,6 +91,17 @@ func (s *ActivityStore) Record(report Report) error {
 		}
 	}
 
+	// Merge screen time
+	if day.ScreenTime == nil {
+		day.ScreenTime = make(map[string]map[string]int)
+	}
+	if day.ScreenTime[hostname] == nil {
+		day.ScreenTime[hostname] = make(map[string]int)
+	}
+	for username, seconds := range report.ScreenTime {
+		day.ScreenTime[hostname][username] += seconds
+	}
+
 	if err := s.saveDay(date, day); err != nil {
 		return err
 	}
@@ -137,6 +149,14 @@ func (s *ActivityStore) GetDay(date string) (map[string]*UserActivity, error) {
 		return nil, err
 	}
 
+	// Aggregate screen time across all hosts
+	screenTimes := make(map[string]int)
+	for _, users := range day.ScreenTime {
+		for username, seconds := range users {
+			screenTimes[username] += seconds
+		}
+	}
+
 	// Aggregate across all hosts
 	result := make(map[string]*UserActivity)
 	for _, users := range day.Hosts {
@@ -167,10 +187,10 @@ func (s *ActivityStore) GetDay(date string) (map[string]*UserActivity, error) {
 	}
 
 	// Build category groups and totals
-	for _, ua := range result {
+	for username, ua := range result {
 		ua.ByCategory = make(map[string][]*AppTime)
 		ua.CategoryTotals = make(map[string]int)
-		ua.Total = 0
+		ua.ScreenTime = screenTimes[username]
 		for _, app := range ua.Apps {
 			cat := "Other"
 			if app.Category != nil {
@@ -178,10 +198,6 @@ func (s *ActivityStore) GetDay(date string) (map[string]*UserActivity, error) {
 			}
 			ua.ByCategory[cat] = append(ua.ByCategory[cat], app)
 			ua.CategoryTotals[cat] += app.Seconds
-			// Only count categorized apps in the total
-			if cat != "Other" {
-				ua.Total += app.Seconds
-			}
 		}
 		// Sort apps within each category by seconds descending
 		for _, apps := range ua.ByCategory {

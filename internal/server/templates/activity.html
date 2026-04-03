@@ -17,14 +17,14 @@
                 <header>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <strong style="font-size: 1.1rem;">{{$name}}</strong>
-                        <small>{{t $.Lang "activity.total"}}: {{formatDuration $ua.Total}}</small>
+                        <small title="{{t $.Lang "activity.screentime.tip"}}">{{t $.Lang "activity.screentime"}}: {{formatDuration $ua.ScreenTime}}</small>
                     </div>
                 </header>
 
                 {{range $cat, $apps := $ua.ByCategory}}
                     {{if ne $cat "Other"}}
                     <details open>
-                        <summary style="border-bottom: 1px solid var(--pico-muted-border-color); padding-bottom: 0.2rem;">{{$cat}} <small>{{formatDuration (index $ua.CategoryTotals $cat)}}</small></summary>
+                        <summary style="border-bottom: 1px solid var(--pico-muted-border-color); padding-bottom: 0.2rem;">{{$cat}} <small title="{{t $.Lang "activity.cattotal.tip"}}">{{formatDuration (index $ua.CategoryTotals $cat)}}</small></summary>
                         <table style="margin-bottom: 0.5rem;">
                             <tbody>
                                 {{range $apps}}

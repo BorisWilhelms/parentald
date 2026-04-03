@@ -50,9 +50,11 @@ var translations = map[string]map[string]string{
 		"day.sun": "Sun",
 
 		// Activity
-		"activity.total":    "Total",
-		"activity.other":    "Other",
-		"activity.nodata":   "No activity data for this day.",
+		"activity.screentime":      "Screen time",
+		"activity.screentime.tip":  "Time the user was actively logged in (not idle or locked)",
+		"activity.cattotal.tip":    "Sum of all app runtimes in this category (apps can run in parallel)",
+		"activity.other":           "Other",
+		"activity.nodata":          "No activity data for this day.",
 
 		// General
 		"until.unlimited":   "unlimited",
@@ -102,9 +104,11 @@ var translations = map[string]map[string]string{
 		"day.sun": "So",
 
 		// Activity
-		"activity.total":    "Gesamt",
-		"activity.other":    "Sonstiges",
-		"activity.nodata":   "Keine Aktivitätsdaten für diesen Tag.",
+		"activity.screentime":      "Bildschirmzeit",
+		"activity.screentime.tip":  "Zeit in der der Benutzer aktiv angemeldet war (nicht idle oder gesperrt)",
+		"activity.cattotal.tip":    "Summe aller App-Laufzeiten in dieser Kategorie (Apps können parallel laufen)",
+		"activity.other":           "Sonstiges",
+		"activity.nodata":          "Keine Aktivitätsdaten für diesen Tag.",
 
 		// General
 		"until.unlimited":   "unbegrenzt",

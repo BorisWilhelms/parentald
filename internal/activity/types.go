@@ -2,9 +2,10 @@ package activity
 
 // Report is the wire format sent from daemon to server on each tick.
 type Report struct {
-	Hostname string                `json:"hostname"`
-	Users    map[string][]AppTime `json:"users"`
-	Sessions map[string]string    `json:"sessions,omitempty"` // user -> "online"/"idle"/"offline"
+	Hostname   string                `json:"hostname"`
+	Users      map[string][]AppTime `json:"users"`
+	Sessions   map[string]string    `json:"sessions,omitempty"`   // user -> "online"/"idle"/"offline"
+	ScreenTime map[string]int       `json:"screenTime,omitempty"` // user -> active session seconds
 }
 
 // AppTime represents the active time for a single application.
