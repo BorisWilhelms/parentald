@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/BorisWilhelms/parentald/internal/version"
@@ -23,16 +24,17 @@ func CheckAndUpdate(serverURL string) (bool, error) {
 		return false, nil
 	}
 
-	binary, err := fetchBinary(serverURL)
-	if err != nil {
-		return false, fmt.Errorf("fetch binary: %w", err)
-	}
-	defer os.Remove(binary)
-
 	execPath, err := os.Executable()
 	if err != nil {
 		return false, fmt.Errorf("resolve executable path: %w", err)
 	}
+
+	// Download to same directory as target to avoid cross-device rename
+	binary, err := fetchBinary(serverURL, filepath.Dir(execPath))
+	if err != nil {
+		return false, fmt.Errorf("fetch binary: %w", err)
+	}
+	defer os.Remove(binary)
 
 	if err := os.Rename(binary, execPath); err != nil {
 		return false, fmt.Errorf("replace binary: %w", err)
@@ -59,7 +61,7 @@ func fetchVersion(serverURL string) (string, error) {
 	return string(data), nil
 }
 
-func fetchBinary(serverURL string) (string, error) {
+func fetchBinary(serverURL string, targetDir string) (string, error) {
 	url := fmt.Sprintf("%s/api/daemon/%s/%s", serverURL, runtime.GOOS, runtime.GOARCH)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -71,7 +73,7 @@ func fetchBinary(serverURL string) (string, error) {
 		return "", fmt.Errorf("server returned %d", resp.StatusCode)
 	}
 
-	tmp, err := os.CreateTemp("", "parentald-update-*")
+	tmp, err := os.CreateTemp(targetDir, "parentald-update-*")
 	if err != nil {
 		return "", err
 	}
