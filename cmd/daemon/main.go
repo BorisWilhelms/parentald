@@ -49,15 +49,14 @@ func main() {
 		log.Printf("warning: could not load server public key: %v (signature verification disabled)", err)
 	}
 
-	var clientPriv ed25519.PrivateKey
-	var clientPub ed25519.PublicKey
-	clientPrivData, err := os.ReadFile(*keyDir + "/client.key")
+	// Load or generate client keypair
+	clientPub, clientPriv, err := crypto.LoadOrGenerateKeypair(*keyDir, "client")
 	if err != nil {
-		log.Printf("warning: could not load client private key: %v (activity signing disabled)", err)
+		log.Printf("warning: could not load/generate client keypair: %v (activity signing disabled)", err)
 	} else {
-		clientPriv, _ = crypto.DecodePrivateKey(string(clientPrivData))
-		clientPubData, _ := os.ReadFile(*keyDir + "/client.pub")
-		clientPub, _ = crypto.DecodePublicKey(string(clientPubData))
+		log.Printf("client public key fingerprint: %s", crypto.Fingerprint(clientPub))
+		// Auto-register with server if not yet registered
+		registerClient(*serverURL, clientPub)
 	}
 
 	var tracker *activity.Tracker
@@ -96,6 +95,27 @@ func main() {
 			denylist.Write(*denyFile, nil)
 			return
 		}
+	}
+}
+
+func registerClient(serverURL string, clientPub ed25519.PublicKey) {
+	body := fmt.Sprintf(`{"publicKey":"%s"}`, crypto.EncodePublicKey(clientPub))
+	resp, err := http.Post(
+		fmt.Sprintf("%s/api/register", serverURL),
+		"application/json",
+		bytes.NewReader([]byte(body)),
+	)
+	if err != nil {
+		log.Printf("failed to register with server: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusCreated {
+		log.Printf("registered with server")
+	} else if resp.StatusCode == http.StatusOK {
+		log.Printf("already registered with server")
+	} else {
+		log.Printf("registration returned %d", resp.StatusCode)
 	}
 }
 
