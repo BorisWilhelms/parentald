@@ -24,16 +24,28 @@ type UserActivity struct {
 	CategoryTotals map[string]int
 }
 
+// UserStatus tracks the last known state of a user session.
+type UserStatus struct {
+	Status   string    `json:"status"` // "online", "idle", "offline"
+	Hostname string    `json:"hostname"`
+	LastSeen time.Time `json:"lastSeen"`
+}
+
 // ActivityStore manages per-day activity files on disk.
 type ActivityStore struct {
-	dir string
-	mu  sync.Mutex
+	dir      string
+	mu       sync.Mutex
+	statusMu sync.RWMutex
+	statuses map[string]*UserStatus // user -> status
 }
 
 // NewActivityStore creates a store backed by the given directory.
 func NewActivityStore(dir string) *ActivityStore {
 	os.MkdirAll(dir, 0755)
-	return &ActivityStore{dir: dir}
+	return &ActivityStore{
+		dir:      dir,
+		statuses: make(map[string]*UserStatus),
+	}
 }
 
 // Record merges an incoming report into today's activity file.
@@ -78,7 +90,41 @@ func (s *ActivityStore) Record(report Report) error {
 		}
 	}
 
-	return s.saveDay(date, day)
+	if err := s.saveDay(date, day); err != nil {
+		return err
+	}
+
+	// Update session statuses
+	s.statusMu.Lock()
+	defer s.statusMu.Unlock()
+	now := time.Now()
+	for username, status := range report.Sessions {
+		s.statuses[username] = &UserStatus{
+			Status:   status,
+			Hostname: hostname,
+			LastSeen: now,
+		}
+	}
+
+	return nil
+}
+
+// GetStatuses returns the current status of all tracked users.
+// Users with no report in the last 2 minutes are marked as offline.
+func (s *ActivityStore) GetStatuses() map[string]*UserStatus {
+	s.statusMu.RLock()
+	defer s.statusMu.RUnlock()
+
+	cutoff := time.Now().Add(-2 * time.Minute)
+	result := make(map[string]*UserStatus, len(s.statuses))
+	for user, st := range s.statuses {
+		status := *st
+		if status.LastSeen.Before(cutoff) {
+			status.Status = "offline"
+		}
+		result[user] = &status
+	}
+	return result
 }
 
 // GetDay returns the activity data for the given date, aggregated across all hosts.

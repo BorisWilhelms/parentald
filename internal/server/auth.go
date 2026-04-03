@@ -14,9 +14,21 @@ import (
 const cookieName = "parentald_session"
 
 // cookieAuth wraps a handler with cookie-based authentication.
-// Redirects to /login if no valid session cookie is present.
-func cookieAuth(next http.Handler, secret string) http.Handler {
+// Also accepts X-API-Key header as alternative (for HA integration).
+// Redirects to /login if no valid auth is present (unless API key was attempted).
+func cookieAuth(next http.Handler, secret, apiKey string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check API key first
+		if apiKey != "" && r.Header.Get("X-API-Key") != "" {
+			if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-API-Key")), []byte(apiKey)) == 1 {
+				next.ServeHTTP(w, r)
+				return
+			}
+			http.Error(w, "invalid API key", http.StatusUnauthorized)
+			return
+		}
+
+		// Fall back to cookie auth
 		if !validateSessionCookie(r, secret) {
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return

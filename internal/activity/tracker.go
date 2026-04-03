@@ -18,8 +18,9 @@ type Tracker struct {
 	desktop  *DesktopLookup
 	hostname string
 
-	mu    sync.Mutex
-	accum map[string]map[string]*appEntry // user -> appName -> entry
+	mu       sync.Mutex
+	accum    map[string]map[string]*appEntry // user -> appName -> entry
+	sessions map[string]string               // user -> "online"/"idle"
 }
 
 // NewTracker creates a Tracker that accumulates time in increments of interval.
@@ -30,6 +31,7 @@ func NewTracker(interval time.Duration, usernames []string) *Tracker {
 		desktop:  NewDesktopLookup(usernames),
 		hostname: hostname,
 		accum:    make(map[string]map[string]*appEntry),
+		sessions: make(map[string]string),
 	}
 }
 
@@ -42,8 +44,10 @@ func (t *Tracker) Tick(users []string) {
 
 	for _, username := range users {
 		if !IsSessionActive(username) {
+			t.sessions[username] = "idle"
 			continue
 		}
+		t.sessions[username] = "online"
 
 		processes, err := ScanUserProcesses(username)
 		if err != nil {
@@ -81,13 +85,14 @@ func (t *Tracker) Flush() *Report {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	if len(t.accum) == 0 {
+	if len(t.accum) == 0 && len(t.sessions) == 0 {
 		return nil
 	}
 
 	report := &Report{
 		Hostname: t.hostname,
 		Users:    make(map[string][]AppTime),
+		Sessions: t.sessions,
 	}
 
 	for username, apps := range t.accum {
@@ -102,6 +107,7 @@ func (t *Tracker) Flush() *Report {
 	}
 
 	t.accum = make(map[string]map[string]*appEntry)
+	t.sessions = make(map[string]string)
 	return report
 }
 

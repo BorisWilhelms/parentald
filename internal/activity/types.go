@@ -4,6 +4,7 @@ package activity
 type Report struct {
 	Hostname string                `json:"hostname"`
 	Users    map[string][]AppTime `json:"users"`
+	Sessions map[string]string    `json:"sessions,omitempty"` // user -> "online"/"idle"/"offline"
 }
 
 // AppTime represents the active time for a single application.

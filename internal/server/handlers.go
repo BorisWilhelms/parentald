@@ -30,6 +30,7 @@ type handlers struct {
 	clientsMu  sync.RWMutex
 	clients    []ed25519.PublicKey
 	clientsDir string
+	apiKey     string
 }
 
 func (h *handlers) index(w http.ResponseWriter, r *http.Request) {
@@ -124,6 +125,12 @@ func (h *handlers) registerClient(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("registered new client: %s", crypto.Fingerprint(pubKey))
 	w.WriteHeader(http.StatusCreated)
+}
+
+func (h *handlers) apiStatus(w http.ResponseWriter, r *http.Request) {
+	statuses := h.actStore.GetStatuses()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(statuses)
 }
 
 func (h *handlers) addUser(w http.ResponseWriter, r *http.Request) {

@@ -11,7 +11,7 @@ import (
 )
 
 // New creates the HTTP handler with all routes configured.
-func New(store *config.Store, adminUser, adminPass, binDir, dataDir string,
+func New(store *config.Store, adminUser, adminPass, binDir, dataDir, apiKey string,
 	serverPub ed25519.PublicKey, serverPriv ed25519.PrivateKey,
 	clients []ed25519.PublicKey, clientsDir string) http.Handler {
 
@@ -24,6 +24,7 @@ func New(store *config.Store, adminUser, adminPass, binDir, dataDir string,
 		adminUser:  adminUser,
 		adminPass:  adminPass,
 		secret:     adminPass,
+		apiKey:     apiKey,
 		serverPub:  serverPub,
 		serverPriv: serverPriv,
 		clients:    clients,
@@ -50,9 +51,10 @@ func New(store *config.Store, adminUser, adminPass, binDir, dataDir string,
 	mux.HandleFunc("POST /login", h.loginSubmit)
 	mux.HandleFunc("GET /logout", h.logout)
 
-	// Protected routes (cookie auth) — used by admin UI
+	// Protected routes (cookie or API key auth) — used by admin UI and HA
 	protected := http.NewServeMux()
 	protected.HandleFunc("GET /", h.index)
+	protected.HandleFunc("GET /api/status", h.apiStatus)
 	protected.HandleFunc("GET /activity", h.activityPage)
 	protected.HandleFunc("POST /users", h.addUser)
 	protected.HandleFunc("DELETE /users/{name}", h.deleteUser)
@@ -62,7 +64,7 @@ func New(store *config.Store, adminUser, adminPass, binDir, dataDir string,
 	protected.HandleFunc("POST /users/{name}/unlock", h.unlockUser)
 	protected.HandleFunc("POST /users/{name}/bonus", h.addBonus)
 
-	mux.Handle("/", cookieAuth(protected, h.secret))
+	mux.Handle("/", cookieAuth(protected, h.secret, h.apiKey))
 
 	return requestLogger(mux)
 }
