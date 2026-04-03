@@ -33,15 +33,22 @@ type handlers struct {
 	apiKey     string
 }
 
-func (h *handlers) index(w http.ResponseWriter, r *http.Request) {
-	cfg := h.store.Get()
-	if err := h.tmpl.ExecuteTemplate(w, "index.html", cfg); err != nil {
-		log.Printf("template error (index.html): %v", err)
+// render executes a template with language support injected.
+func (h *handlers) render(w http.ResponseWriter, r *http.Request, name string, data any) {
+	lang := getLang(r)
+	wrapped := map[string]any{"Lang": lang, "Data": data}
+	if err := h.tmpl.ExecuteTemplate(w, name, wrapped); err != nil {
+		log.Printf("template error (%s): %v", name, err)
 	}
 }
 
+func (h *handlers) index(w http.ResponseWriter, r *http.Request) {
+	cfg := h.store.Get()
+	h.render(w, r, "index.html", cfg)
+}
+
 func (h *handlers) loginPage(w http.ResponseWriter, r *http.Request) {
-	h.tmpl.ExecuteTemplate(w, "login.html", nil)
+	h.render(w, r, "login.html", nil)
 }
 
 func (h *handlers) loginSubmit(w http.ResponseWriter, r *http.Request) {
@@ -49,8 +56,10 @@ func (h *handlers) loginSubmit(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 
+	lang := getLang(r)
 	if username != h.adminUser || password != h.adminPass {
-		if err := h.tmpl.ExecuteTemplate(w, "login.html", map[string]string{"Error": "Ungültige Anmeldedaten"}); err != nil {
+		wrapped := map[string]any{"Lang": lang, "Data": map[string]string{"Error": t(lang, "login.error")}}
+		if err := h.tmpl.ExecuteTemplate(w, "login.html", wrapped); err != nil {
 			log.Printf("template error (login.html): %v", err)
 		}
 		return
@@ -63,6 +72,26 @@ func (h *handlers) loginSubmit(w http.ResponseWriter, r *http.Request) {
 func (h *handlers) logout(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, clearSessionCookie())
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
+func (h *handlers) setLang(w http.ResponseWriter, r *http.Request) {
+	lang := r.PathValue("lang")
+	if lang != "en" && lang != "de" {
+		lang = "en"
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "lang",
+		Value:    lang,
+		Path:     "/",
+		MaxAge:   365 * 24 * 60 * 60,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	referer := r.Header.Get("Referer")
+	if referer == "" {
+		referer = "/"
+	}
+	http.Redirect(w, r, referer, http.StatusSeeOther)
 }
 
 // configResponse is the merged config + version endpoint response.
@@ -151,7 +180,7 @@ func (h *handlers) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.renderUserList(w)
+	h.renderUserList(w, r)
 }
 
 func (h *handlers) deleteUser(w http.ResponseWriter, r *http.Request) {
@@ -165,7 +194,7 @@ func (h *handlers) deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.renderUserList(w)
+	h.renderUserList(w, r)
 }
 
 func (h *handlers) addSchedule(w http.ResponseWriter, r *http.Request) {
@@ -193,7 +222,7 @@ func (h *handlers) addSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.renderUserSchedules(w, name)
+	h.renderUserSchedules(w, r, name)
 }
 
 func (h *handlers) deleteSchedule(w http.ResponseWriter, r *http.Request) {
@@ -217,7 +246,7 @@ func (h *handlers) deleteSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.renderUserSchedules(w, name)
+	h.renderUserSchedules(w, r, name)
 }
 
 func (h *handlers) lockUser(w http.ResponseWriter, r *http.Request) {
@@ -241,7 +270,7 @@ func (h *handlers) lockUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.renderUserList(w)
+	h.renderUserList(w, r)
 }
 
 func (h *handlers) unlockUser(w http.ResponseWriter, r *http.Request) {
@@ -267,7 +296,7 @@ func (h *handlers) unlockUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.renderUserList(w)
+	h.renderUserList(w, r)
 }
 
 func (h *handlers) addBonus(w http.ResponseWriter, r *http.Request) {
@@ -311,7 +340,7 @@ func (h *handlers) addBonus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.renderUserList(w)
+	h.renderUserList(w, r)
 }
 
 func (h *handlers) apiActivity(w http.ResponseWriter, r *http.Request) {
@@ -389,19 +418,15 @@ func (h *handlers) activityPage(w http.ResponseWriter, r *http.Request) {
 		Users: users,
 	}
 
-	if err := h.tmpl.ExecuteTemplate(w, "activity.html", data); err != nil {
-		log.Printf("template error (activity.html): %v", err)
-	}
+	h.render(w, r, "activity.html", data)
 }
 
-func (h *handlers) renderUserList(w http.ResponseWriter) {
+func (h *handlers) renderUserList(w http.ResponseWriter, r *http.Request) {
 	cfg := h.store.Get()
-	if err := h.tmpl.ExecuteTemplate(w, "user_list.html", cfg); err != nil {
-		log.Printf("template error (user_list.html): %v", err)
-	}
+	h.render(w, r, "user_list.html", cfg)
 }
 
-func (h *handlers) renderUserSchedules(w http.ResponseWriter, username string) {
+func (h *handlers) renderUserSchedules(w http.ResponseWriter, r *http.Request, username string) {
 	cfg := h.store.Get()
 	data := struct {
 		Name string
@@ -410,7 +435,5 @@ func (h *handlers) renderUserSchedules(w http.ResponseWriter, username string) {
 		Name: username,
 		User: cfg.Users[username],
 	}
-	if err := h.tmpl.ExecuteTemplate(w, "user_schedules.html", data); err != nil {
-		log.Printf("template error (user_schedules.html): %v", err)
-	}
+	h.render(w, r, "user_schedules.html", data)
 }

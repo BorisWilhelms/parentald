@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="de" data-theme="auto">
+<html lang="{{.Lang}}" data-theme="auto">
 {{template "head"}}
 <body>
     <main class="container">
-        {{template "nav"}}
+        {{template "nav" .}}
 
         <article>
-            <header><strong>Benutzer hinzufügen</strong></header>
+            <header><strong>{{t .Lang "users.add"}}</strong></header>
             <form role="group" hx-post="/users" hx-target="#user-list" hx-swap="innerHTML">
-                <input type="text" name="name" placeholder="Linux-Benutzername" required>
-                <button type="submit">Hinzufügen</button>
+                <input type="text" name="name" placeholder="{{t .Lang "users.placeholder"}}" required>
+                <button type="submit">{{t .Lang "users.submit"}}</button>
             </form>
         </article>
 

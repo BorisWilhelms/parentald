@@ -1,33 +1,33 @@
-{{range $name, $user := .Users}}
+{{range $name, $user := .Data.Users}}
 <article>
     <header>
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <strong style="font-size: 1.1rem;">
                 {{$name}}
-                {{if isLocked $user}}<mark class="locked">Gesperrt bis {{formatUntil $user.LockedUntil}}</mark>
-                {{else if hasBonus $user}}<mark class="bonus">Bonus bis {{formatUntil $user.BonusUntil}}</mark>
+                {{if isLocked $user}}<mark class="locked">{{t $.Lang "user.locked"}} {{formatUntil $.Lang $user.LockedUntil}}</mark>
+                {{else if hasBonus $user}}<mark class="bonus">{{t $.Lang "user.bonus"}} {{formatUntil $.Lang $user.BonusUntil}}</mark>
                 {{end}}
             </strong>
-            <button class="outline secondary" style="width: auto; margin: 0; padding: 0.25rem 0.75rem;" hx-delete="/users/{{$name}}" hx-target="#user-list" hx-swap="innerHTML" hx-confirm="Benutzer {{$name}} wirklich löschen?">Löschen</button>
+            <button class="outline secondary" style="width: auto; margin: 0; padding: 0.25rem 0.75rem;" hx-delete="/users/{{$name}}" hx-target="#user-list" hx-swap="innerHTML" hx-confirm="{{t $.Lang "user.delete.confirm"}} {{$name}}?">{{t $.Lang "user.delete"}}</button>
         </div>
     </header>
 
     <div role="group" style="margin-bottom: 1rem;">
         {{if isLocked $user}}
             {{if isInSchedule $user}}
-            <button class="outline" hx-post="/users/{{$name}}/unlock" hx-target="#user-list" hx-swap="innerHTML">Entsperren</button>
+            <button class="outline" hx-post="/users/{{$name}}/unlock" hx-target="#user-list" hx-swap="innerHTML">{{t $.Lang "user.unlock"}}</button>
             {{end}}
         {{else}}
-            <button class="outline contrast" hx-post="/users/{{$name}}/lock" hx-target="#user-list" hx-swap="innerHTML">Sperren</button>
+            <button class="outline contrast" hx-post="/users/{{$name}}/lock" hx-target="#user-list" hx-swap="innerHTML">{{t $.Lang "user.lock"}}</button>
         {{end}}
         <form role="group" style="margin: 0;" hx-post="/users/{{$name}}/bonus" hx-target="#user-list" hx-swap="innerHTML">
             <input type="number" name="minutes" min="1" value="15" style="width: 5rem;">
-            <button type="submit" class="outline">Bonus</button>
+            <button type="submit" class="outline">{{t $.Lang "user.bonus.btn"}}</button>
         </form>
     </div>
 
     <div id="schedules-{{$name}}">
-        {{template "user_schedules.html" (dict "Name" $name "User" $user)}}
+        {{template "user_schedules.html" (dict "Lang" $.Lang "Data" (dict "Name" $name "User" $user))}}
     </div>
 </article>
 {{end}}

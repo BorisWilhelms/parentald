@@ -1,23 +1,23 @@
 <!DOCTYPE html>
-<html lang="de" data-theme="auto">
+<html lang="{{.Lang}}" data-theme="auto">
 {{template "head"}}
 <body>
     <main class="container" style="max-width: 400px; margin-top: 10vh;">
         <article>
             <h2>parentald</h2>
-            {{if .}}{{with .Error}}
+            {{with .Data}}{{with .Error}}
             <p style="color: var(--pico-del-color);">{{.}}</p>
             {{end}}{{end}}
             <form method="POST" action="/login">
                 <label>
-                    Benutzername
+                    {{t .Lang "login.username"}}
                     <input type="text" name="username" required autofocus>
                 </label>
                 <label>
-                    Passwort
+                    {{t .Lang "login.password"}}
                     <input type="password" name="password" required>
                 </label>
-                <button type="submit">Anmelden</button>
+                <button type="submit">{{t .Lang "login.submit"}}</button>
             </form>
         </article>
     </main>

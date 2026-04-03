@@ -16,6 +16,7 @@ var templateFS embed.FS
 
 var funcMap = template.FuncMap{
 	"join": strings.Join,
+	"t":    t,
 	"safeURL": func(s string) template.URL {
 		return template.URL(s)
 	},
@@ -35,14 +36,14 @@ var funcMap = template.FuncMap{
 	"isInSchedule": func(u config.User) bool {
 		return config.IsInSchedule(u.Schedules, time.Now())
 	},
-	"formatUntil": func(t *time.Time) string {
-		if t == nil {
+	"formatUntil": func(lang string, tt *time.Time) string {
+		if tt == nil {
 			return ""
 		}
-		if t.Year() >= 9999 {
-			return "unbegrenzt"
+		if tt.Year() >= 9999 {
+			return t(lang, "until.unlimited")
 		}
-		return fmt.Sprintf("%s %s", t.Format("02.01."), t.Format("15:04"))
+		return fmt.Sprintf("%s %s", tt.Format("02.01."), tt.Format("15:04"))
 	},
 	"formatDuration": func(seconds int) string {
 		h := seconds / 3600

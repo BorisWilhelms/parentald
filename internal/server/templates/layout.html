@@ -40,6 +40,7 @@
         article header { background: color-mix(in srgb, var(--pico-primary) 8%, transparent); border-bottom: 2px solid var(--pico-primary); margin: -1rem -1rem 1rem -1rem; padding: 0.75rem 1rem; border-radius: 0.35rem 0.35rem 0 0; }
         details summary { font-weight: 600; }
         button.contrast { --pico-contrast: #dc2626; --pico-contrast-hover: #b91c1c; }
+        .lang-switch { font-size: 0.75rem; opacity: 0.8; }
     </style>
 </head>
 {{end}}
@@ -50,9 +51,13 @@
         <li><strong>parentald</strong></li>
     </ul>
     <ul>
-        <li><a href="/">Benutzer</a></li>
-        <li><a href="/activity">Aktivität</a></li>
-        <li><a href="/logout">Abmelden</a></li>
+        <li><a href="/">{{t .Lang "nav.users"}}</a></li>
+        <li><a href="/activity">{{t .Lang "nav.activity"}}</a></li>
+        <li><a href="/logout">{{t .Lang "nav.logout"}}</a></li>
+        <li>
+            {{if eq .Lang "de"}}<a href="/lang/en" class="lang-switch">EN</a>
+            {{else}}<a href="/lang/de" class="lang-switch">DE</a>{{end}}
+        </li>
         <li><a href="#" onclick="toggleTheme()" id="theme-toggle">🌙</a></li>
     </ul>
 </nav>

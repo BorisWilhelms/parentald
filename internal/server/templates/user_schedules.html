@@ -1,47 +1,47 @@
-{{if .User.Schedules}}
+{{if .Data.User.Schedules}}
 <table>
     <thead>
         <tr>
-            <th>Tage</th>
-            <th>Von</th>
-            <th>Bis</th>
+            <th>{{t .Lang "schedule.days"}}</th>
+            <th>{{t .Lang "schedule.from"}}</th>
+            <th>{{t .Lang "schedule.to"}}</th>
             <th></th>
         </tr>
     </thead>
     <tbody>
-        {{range $i, $s := .User.Schedules}}
+        {{range $i, $s := .Data.User.Schedules}}
         <tr>
             <td>{{join $s.Days ", "}}</td>
             <td>{{$s.From}}</td>
             <td>{{$s.To}}</td>
             <td>
-                <button class="outline secondary" style="width: auto; margin: 0; padding: 0.2rem 0.6rem;" hx-delete="/users/{{$.Name}}/schedules/{{$i}}" hx-target="#schedules-{{$.Name}}" hx-swap="innerHTML">Löschen</button>
+                <button class="outline secondary" style="width: auto; margin: 0; padding: 0.2rem 0.6rem;" hx-delete="/users/{{$.Data.Name}}/schedules/{{$i}}" hx-target="#schedules-{{$.Data.Name}}" hx-swap="innerHTML">{{t $.Lang "schedule.delete"}}</button>
             </td>
         </tr>
         {{end}}
     </tbody>
 </table>
 {{else}}
-<p><small>Keine Zeitfenster konfiguriert. Benutzer ist nicht eingeschränkt.</small></p>
+<p><small>{{t .Lang "schedule.none"}}</small></p>
 {{end}}
 
 <details>
-    <summary role="button" class="outline">Zeitfenster hinzufügen</summary>
-    <form hx-post="/users/{{.Name}}/schedules" hx-target="#schedules-{{.Name}}" hx-swap="innerHTML" style="margin-top: 0.75rem;">
+    <summary role="button" class="outline">{{t .Lang "schedule.add"}}</summary>
+    <form hx-post="/users/{{.Data.Name}}/schedules" hx-target="#schedules-{{.Data.Name}}" hx-swap="innerHTML" style="margin-top: 0.75rem;">
         <fieldset class="days-inline">
-            <label><input type="checkbox" name="days" value="mon"> Mo</label>
-            <label><input type="checkbox" name="days" value="tue"> Di</label>
-            <label><input type="checkbox" name="days" value="wed"> Mi</label>
-            <label><input type="checkbox" name="days" value="thu"> Do</label>
-            <label><input type="checkbox" name="days" value="fri"> Fr</label>
-            <label><input type="checkbox" name="days" value="sat"> Sa</label>
-            <label><input type="checkbox" name="days" value="sun"> So</label>
+            <label><input type="checkbox" name="days" value="mon"> {{t .Lang "day.mon"}}</label>
+            <label><input type="checkbox" name="days" value="tue"> {{t .Lang "day.tue"}}</label>
+            <label><input type="checkbox" name="days" value="wed"> {{t .Lang "day.wed"}}</label>
+            <label><input type="checkbox" name="days" value="thu"> {{t .Lang "day.thu"}}</label>
+            <label><input type="checkbox" name="days" value="fri"> {{t .Lang "day.fri"}}</label>
+            <label><input type="checkbox" name="days" value="sat"> {{t .Lang "day.sat"}}</label>
+            <label><input type="checkbox" name="days" value="sun"> {{t .Lang "day.sun"}}</label>
         </fieldset>
         <div role="group">
             <input type="time" name="from" required>
-            <span style="padding: 0 0.25rem;">bis</span>
+            <span>—</span>
             <input type="time" name="to" required>
-            <button type="submit">Hinzufügen</button>
+            <button type="submit">{{t .Lang "schedule.submit"}}</button>
         </div>
     </form>
 </details>

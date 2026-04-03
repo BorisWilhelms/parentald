@@ -19,7 +19,7 @@ type DayActivity struct {
 // UserActivity is a flattened view for the UI (aggregated across hosts).
 type UserActivity struct {
 	Apps           map[string]*AppTime
-	Total          int // only categorized apps (excludes "Sonstiges")
+	Total          int // only categorized apps (excludes "Other")
 	ByCategory     map[string][]*AppTime
 	CategoryTotals map[string]int
 }
@@ -172,14 +172,14 @@ func (s *ActivityStore) GetDay(date string) (map[string]*UserActivity, error) {
 		ua.CategoryTotals = make(map[string]int)
 		ua.Total = 0
 		for _, app := range ua.Apps {
-			cat := "Sonstiges"
+			cat := "Other"
 			if app.Category != nil {
 				cat = *app.Category
 			}
 			ua.ByCategory[cat] = append(ua.ByCategory[cat], app)
 			ua.CategoryTotals[cat] += app.Seconds
 			// Only count categorized apps in the total
-			if cat != "Sonstiges" {
+			if cat != "Other" {
 				ua.Total += app.Seconds
 			}
 		}

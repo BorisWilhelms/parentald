@@ -122,8 +122,8 @@ func TestActivityStore_CategoryGrouping(t *testing.T) {
 	if len(ua.ByCategory["Network"]) != 2 {
 		t.Errorf("expected 2 Network apps, got %d", len(ua.ByCategory["Network"]))
 	}
-	if len(ua.ByCategory["Sonstiges"]) != 1 {
-		t.Errorf("expected 1 Sonstiges app, got %d", len(ua.ByCategory["Sonstiges"]))
+	if len(ua.ByCategory["Other"]) != 1 {
+		t.Errorf("expected 1 Sonstiges app, got %d", len(ua.ByCategory["Other"]))
 	}
 	// Sorted descending
 	if ua.ByCategory["Network"][0].Name != "Firefox" {

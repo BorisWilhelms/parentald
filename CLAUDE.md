@@ -55,4 +55,5 @@ Docker: `docker compose up` (needs `ADMIN_PASS` env var).
 - Go 1.22+ `ServeMux` pattern routing (method + path)
 - Templates: each page is self-contained HTML (no shared `{{define "content"}}` — that causes conflicts). Shared parts via `{{template "head"}}` and `{{template "nav"}}`.
 - Pico CSS via CDN, HTMX via CDN
-- All user-facing text in German with proper umlauts
+- i18n: all UI strings in `internal/server/i18n.go`. Templates use `{{t .Lang "key"}}`. Language stored in cookie, toggled via `/lang/{lang}`. Every handler uses `h.render()` which wraps data as `{Lang, Data}`.
+- "Other" is the internal category key for uncategorized apps (translated to "Sonstiges" in German)

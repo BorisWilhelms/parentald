@@ -1,28 +1,28 @@
 <!DOCTYPE html>
-<html lang="de" data-theme="auto">
+<html lang="{{.Lang}}" data-theme="auto">
 {{template "head"}}
 <body>
     <main class="container">
-        {{template "nav"}}
+        {{template "nav" .}}
 
         <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-            <a href="/activity?date={{prevDate .Date}}" role="button" class="outline" style="width: auto; padding: 0.25rem 0.75rem; margin: 0;">&larr;</a>
-            <strong>{{.Date}}</strong>
-            <a href="/activity?date={{nextDate .Date}}" role="button" class="outline" style="width: auto; padding: 0.25rem 0.75rem; margin: 0;">&rarr;</a>
+            <a href="/activity?date={{prevDate .Data.Date}}" role="button" class="outline" style="width: auto; padding: 0.25rem 0.75rem; margin: 0;">&larr;</a>
+            <strong>{{.Data.Date}}</strong>
+            <a href="/activity?date={{nextDate .Data.Date}}" role="button" class="outline" style="width: auto; padding: 0.25rem 0.75rem; margin: 0;">&rarr;</a>
         </div>
 
-        {{if .Users}}
-            {{range $name, $ua := .Users}}
+        {{if .Data.Users}}
+            {{range $name, $ua := .Data.Users}}
             <article>
                 <header>
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <strong style="font-size: 1.1rem;">{{$name}}</strong>
-                        <small>Gesamt: {{formatDuration $ua.Total}}</small>
+                        <small>{{t $.Lang "activity.total"}}: {{formatDuration $ua.Total}}</small>
                     </div>
                 </header>
 
                 {{range $cat, $apps := $ua.ByCategory}}
-                    {{if ne $cat "Sonstiges"}}
+                    {{if ne $cat "Other"}}
                     <details open>
                         <summary style="border-bottom: 1px solid var(--pico-muted-border-color); padding-bottom: 0.2rem;">{{$cat}} <small>{{formatDuration (index $ua.CategoryTotals $cat)}}</small></summary>
                         <table style="margin-bottom: 0.5rem;">
@@ -42,9 +42,9 @@
                     {{end}}
                 {{end}}
 
-                {{with index $ua.ByCategory "Sonstiges"}}
+                {{with index $ua.ByCategory "Other"}}
                 <details>
-                    <summary style="border-bottom: 1px solid var(--pico-muted-border-color); padding-bottom: 0.2rem;">Sonstiges <small>{{formatDuration (index $ua.CategoryTotals "Sonstiges")}}</small></summary>
+                    <summary style="border-bottom: 1px solid var(--pico-muted-border-color); padding-bottom: 0.2rem;">{{t $.Lang "activity.other"}} <small>{{formatDuration (index $ua.CategoryTotals "Other")}}</small></summary>
                     <table style="margin-bottom: 0.5rem;">
                         <tbody>
                             {{range .}}
@@ -64,7 +64,7 @@
             {{end}}
         {{else}}
             <article>
-                <p>Keine Aktivitätsdaten für diesen Tag.</p>
+                <p>{{t .Lang "activity.nodata"}}</p>
             </article>
         {{end}}
     </main>

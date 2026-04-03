@@ -46,10 +46,11 @@ func New(store *config.Store, adminUser, adminPass, binDir, dataDir, apiKey stri
 	mux.Handle("GET /manifest.json", staticHandler())
 	mux.Handle("GET /icon.svg", staticHandler())
 
-	// Login/logout (no auth)
+	// Login/logout/language (no auth)
 	mux.HandleFunc("GET /login", h.loginPage)
 	mux.HandleFunc("POST /login", h.loginSubmit)
 	mux.HandleFunc("GET /logout", h.logout)
+	mux.HandleFunc("GET /lang/{lang}", h.setLang)
 
 	// Protected routes (cookie or API key auth) — used by admin UI and HA
 	protected := http.NewServeMux()
