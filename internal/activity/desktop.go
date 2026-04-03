@@ -183,13 +183,40 @@ func parseFlatpakExec(args []string) string {
 	return ""
 }
 
-// firstCategory returns the first non-empty category from a semicolon-separated list.
+// mainCategories are the freedesktop.org Main Categories.
+// These describe the app's purpose, not its toolkit or desktop.
+var mainCategories = map[string]bool{
+	"AudioVideo":  true,
+	"Audio":       true,
+	"Video":       true,
+	"Development": true,
+	"Education":   true,
+	"Game":        true,
+	"Graphics":    true,
+	"Network":     true,
+	"Office":      true,
+	"Science":     true,
+	"Settings":    true,
+	"System":      true,
+	"Utility":     true,
+}
+
+// firstCategory returns the first main category from a semicolon-separated list.
+// Skips toolkit/desktop markers like GNOME, GTK, KDE, Qt.
+// Falls back to the first non-empty category if no main category is found.
 func firstCategory(categories string) string {
+	var fallback string
 	for _, cat := range strings.Split(categories, ";") {
 		cat = strings.TrimSpace(cat)
-		if cat != "" {
+		if cat == "" {
+			continue
+		}
+		if mainCategories[cat] {
 			return cat
 		}
+		if fallback == "" {
+			fallback = cat
+		}
 	}
-	return ""
+	return fallback
 }

@@ -38,6 +38,9 @@ func TestFirstCategory(t *testing.T) {
 		{"Network;WebBrowser;", "Network"},
 		{"Game;", "Game"},
 		{"AudioVideo;Audio;", "AudioVideo"},
+		{"GNOME;GTK;Game;", "Game"},
+		{"KDE;Qt;Office;", "Office"},
+		{"GTK;GNOME;", "GTK"},
 		{"", ""},
 		{";;;", ""},
 	}
