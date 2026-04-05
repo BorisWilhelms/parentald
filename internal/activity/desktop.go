@@ -58,12 +58,13 @@ func NewDesktopLookup(usernames []string) *DesktopLookup {
 		if err != nil {
 			continue
 		}
-		dl.scanDir(filepath.Join(u.HomeDir, ".local", "share", "flatpak", "exports", "share", "applications"))
-		dl.scanDir(filepath.Join(u.HomeDir, ".local", "share", "applications"))
-		// Add per-user icon directories
+		// Add per-user icon directories BEFORE scanning desktop files
+		// so that icons referenced in user .desktop files can be resolved.
 		for _, size := range []string{"48x48", "64x64", "32x32", "128x128", "scalable", "256x256", "24x24", "16x16"} {
 			dl.iconDirs = append(dl.iconDirs, filepath.Join(u.HomeDir, ".local", "share", "icons", "hicolor", size, "apps"))
 		}
+		dl.scanDir(filepath.Join(u.HomeDir, ".local", "share", "flatpak", "exports", "share", "applications"))
+		dl.scanDir(filepath.Join(u.HomeDir, ".local", "share", "applications"))
 	}
 	return dl
 }
