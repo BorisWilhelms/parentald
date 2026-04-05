@@ -78,7 +78,7 @@ func (dl *DesktopLookup) Lookup(exeBasename string) (AppInfo, bool) {
 // the .desktop filename of each registered game.
 // E.g., "valheim.x86_64" matches "Valheim.desktop", "Raft.exe" matches "Raft.desktop".
 func (dl *DesktopLookup) LookupGame(exeBasename string) (AppInfo, bool) {
-	normalized := normalizeGameExe(exeBasename)
+	normalized := normalizeGameName(exeBasename)
 
 	for _, game := range dl.games {
 		if game.matchID == normalized {
@@ -88,12 +88,17 @@ func (dl *DesktopLookup) LookupGame(exeBasename string) (AppInfo, bool) {
 	return AppInfo{}, false
 }
 
-// normalizeGameExe strips common game executable suffixes and lowercases.
-func normalizeGameExe(name string) string {
+// normalizeGameName strips suffixes, lowercases, and removes spaces/special chars
+// for fuzzy matching between comm names and .desktop filenames.
+// E.g., "TransportFever2" and "Transport Fever 2" both normalize to "transportfever2".
+func normalizeGameName(name string) string {
 	n := strings.ToLower(name)
 	for _, suffix := range []string{".exe", ".x86_64", ".x86", ".bin", ".sh"} {
 		n = strings.TrimSuffix(n, suffix)
 	}
+	n = strings.ReplaceAll(n, " ", "")
+	n = strings.ReplaceAll(n, "-", "")
+	n = strings.ReplaceAll(n, "_", "")
 	return n
 }
 
@@ -181,7 +186,7 @@ func (dl *DesktopLookup) parseFile(path string) {
 			desktopID := strings.TrimSuffix(filepath.Base(path), ".desktop")
 			dl.games = append(dl.games, launcherGame{
 				name:    name,
-				matchID: strings.ToLower(desktopID),
+				matchID: normalizeGameName(desktopID),
 				info:    info,
 			})
 			return
