@@ -109,21 +109,21 @@ func findTopLevelApps(procs map[int]*processInfo, uid int) []string {
 }
 
 // resolveAppName determines the app name for a top-level process.
-// Checks the process and all descendants for flatpak cgroup markers.
+// Checks the process and all descendants for systemd app scope cgroup markers.
 func resolveAppName(proc *processInfo) string {
-	if flatpakID := findFlatpakInSubtree(proc); flatpakID != "" {
-		return flatpakID
+	if appID := findAppIDInSubtree(proc); appID != "" {
+		return appID
 	}
 	return proc.exe
 }
 
-// findFlatpakInSubtree checks a process and all its descendants for a flatpak app ID.
-func findFlatpakInSubtree(proc *processInfo) string {
-	if id := flatpakAppID(proc.pid); id != "" {
+// findAppIDInSubtree checks a process and all its descendants for a systemd app scope.
+func findAppIDInSubtree(proc *processInfo) string {
+	if id := appIDFromCgroup(proc.pid); id != "" {
 		return id
 	}
 	for _, child := range proc.children {
-		if id := findFlatpakInSubtree(child); id != "" {
+		if id := findAppIDInSubtree(child); id != "" {
 			return id
 		}
 	}
@@ -161,25 +161,71 @@ func isOwnedBy(pid, uid int) bool {
 	return procUID == uid
 }
 
-// flatpakAppID reads /proc/<pid>/cgroup to detect flatpak processes.
-// Returns the app ID (e.g., "com.valvesoftware.Steam") or empty string.
-func flatpakAppID(pid int) string {
+// appIDFromCgroup reads /proc/<pid>/cgroup to detect app scope processes.
+// Handles both flatpak and native app scopes launched by the desktop environment.
+//
+// Examples:
+//   - "app-flatpak-com.valvesoftware.Steam-12345.scope" → "com.valvesoftware.Steam"
+//   - "app-gnome-steam-12345.scope" → "steam"
+//   - "app-gnome-org.mozilla.firefox-12345.scope" → "org.mozilla.firefox"
+//   - "app-dbus-org.freedesktop.Foo-12345.scope" → "org.freedesktop.Foo"
+func appIDFromCgroup(pid int) string {
 	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/cgroup", pid))
 	if err != nil {
 		return ""
 	}
-	for _, line := range strings.Split(string(data), "\n") {
-		// Look for: "0::/user.slice/.../app-flatpak-com.valvesoftware.Steam-12345.scope"
-		if idx := strings.Index(line, "app-flatpak-"); idx >= 0 {
-			rest := line[idx+len("app-flatpak-"):]
-			// Strip the trailing instance ID and .scope
-			if scopeIdx := strings.LastIndex(rest, "-"); scopeIdx > 0 {
-				appID := rest[:scopeIdx]
-				// Unescape: flatpak uses \x2d for hyphens in cgroup names
-				appID = strings.ReplaceAll(appID, `\x2d`, "-")
-				return appID
+	return parseAppIDFromCgroupData(string(data))
+}
+
+// parseAppIDFromCgroupData parses cgroup data to extract an app ID.
+func parseAppIDFromCgroupData(data string) string {
+	for _, line := range strings.Split(data, "\n") {
+		// Look for app-*.scope pattern
+		idx := strings.Index(line, "/app-")
+		if idx < 0 {
+			continue
+		}
+		scope := line[idx+1:] // "app-gnome-steam-12345.scope"
+
+		// Strip .scope suffix
+		scope = strings.TrimSuffix(scope, ".scope")
+
+		// Parse: app-<launcher>-<appname>-<pid>
+		// Remove "app-" prefix
+		rest := strings.TrimPrefix(scope, "app-")
+
+		// Split by "-" — first part is launcher, last part is PID, middle is app name
+		// But app names can contain hyphens, so we need to be smart
+		parts := strings.SplitN(rest, "-", 2)
+		if len(parts) < 2 {
+			continue
+		}
+		launcher := parts[0]
+		remainder := parts[1]
+
+		// Strip trailing "-<pid>" (numeric suffix)
+		if lastDash := strings.LastIndex(remainder, "-"); lastDash > 0 {
+			suffix := remainder[lastDash+1:]
+			if _, err := strconv.Atoi(suffix); err == nil {
+				remainder = remainder[:lastDash]
 			}
 		}
+
+		if remainder == "" {
+			continue
+		}
+
+		// Unescape: systemd uses \x2d for hyphens in cgroup names
+		remainder = strings.ReplaceAll(remainder, `\x2d`, "-")
+
+		// For flatpak, the remainder is the full app ID (com.valvesoftware.Steam)
+		if launcher == "flatpak" {
+			return remainder
+		}
+
+		// For native apps, return the remainder as-is
+		// (e.g., "steam", "org.mozilla.firefox", "gnome-terminal-server")
+		return remainder
 	}
 	return ""
 }
