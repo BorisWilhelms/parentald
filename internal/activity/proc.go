@@ -14,6 +14,7 @@ type processInfo struct {
 	pid      int
 	ppid     int
 	exe      string
+	comm     string // process name from /proc/<pid>/comm (useful for Wine/Proton games)
 	children []*processInfo
 }
 
@@ -66,10 +67,16 @@ func buildProcessTree(uid int) map[int]*processInfo {
 		}
 		exe = strings.TrimSuffix(exe, " (deleted)")
 
+		comm := ""
+		if commData, err := os.ReadFile(fmt.Sprintf("/proc/%d/comm", pid)); err == nil {
+			comm = strings.TrimSpace(string(commData))
+		}
+
 		procs[pid] = &processInfo{
 			pid:  pid,
 			ppid: ppid,
 			exe:  filepath.Base(exe),
+			comm: comm,
 		}
 	}
 
@@ -113,11 +120,23 @@ func findTopLevelApps(procs map[int]*processInfo, uid int) []string {
 	return result
 }
 
+// winePreloaders are exe names that indicate a Wine/Proton process.
+// For these, the comm name (e.g., "Raft.exe") is more useful than the
+// exe path (which points to wine64-preloader).
+var winePreloaders = map[string]bool{
+	"wine64-preloader": true,
+	"wine-preloader":   true,
+}
+
 // collectSubtreeExes walks a process subtree and adds all unique
-// executable basenames. The tracker uses these to match launcher games
-// (e.g., valheim.x86_64 under Steam matched against Valheim.desktop).
+// executable basenames. The tracker uses these to match launcher games.
+// For Wine/Proton processes, uses the comm name instead of the exe path.
 func collectSubtreeExes(proc *processInfo, seen map[string]bool) {
-	seen[proc.exe] = true
+	if winePreloaders[proc.exe] && proc.comm != "" {
+		seen[proc.comm] = true
+	} else {
+		seen[proc.exe] = true
+	}
 	for _, child := range proc.children {
 		collectSubtreeExes(child, seen)
 	}
