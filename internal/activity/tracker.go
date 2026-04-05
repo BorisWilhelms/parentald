@@ -71,6 +71,7 @@ func (t *Tracker) Tick(users []string) {
 			var icon *string
 
 			if info, ok := t.desktop.Lookup(exeBasename); ok {
+				log.Printf("debug: desktop lookup %q -> Name=%q", exeBasename, info.Name)
 				name = info.Name
 				category = info.Category
 				icon = info.Icon
