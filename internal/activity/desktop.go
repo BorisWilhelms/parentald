@@ -61,7 +61,7 @@ func NewDesktopLookup(usernames []string) *DesktopLookup {
 		dl.scanDir(filepath.Join(u.HomeDir, ".local", "share", "flatpak", "exports", "share", "applications"))
 		dl.scanDir(filepath.Join(u.HomeDir, ".local", "share", "applications"))
 		// Add per-user icon directories
-		for _, size := range []string{"48x48", "64x64", "128x128", "scalable", "256x256"} {
+		for _, size := range []string{"48x48", "64x64", "32x32", "128x128", "scalable", "256x256", "24x24", "16x16"} {
 			dl.iconDirs = append(dl.iconDirs, filepath.Join(u.HomeDir, ".local", "share", "icons", "hicolor", size, "apps"))
 		}
 	}
@@ -308,12 +308,16 @@ func parseFlatpakExec(args []string) string {
 var iconSearchDirs = []string{
 	"/usr/share/icons/hicolor/48x48/apps",
 	"/usr/share/icons/hicolor/64x64/apps",
+	"/usr/share/icons/hicolor/32x32/apps",
 	"/usr/share/icons/hicolor/scalable/apps",
 	"/usr/share/icons/hicolor/256x256/apps",
 	"/usr/share/icons/hicolor/128x128/apps",
+	"/usr/share/icons/hicolor/24x24/apps",
+	"/usr/share/icons/hicolor/16x16/apps",
 	"/usr/share/pixmaps",
 	"/var/lib/flatpak/exports/share/icons/hicolor/64x64/apps",
 	"/var/lib/flatpak/exports/share/icons/hicolor/48x48/apps",
+	"/var/lib/flatpak/exports/share/icons/hicolor/32x32/apps",
 	"/var/lib/flatpak/exports/share/icons/hicolor/scalable/apps",
 	"/var/lib/flatpak/exports/share/icons/hicolor/128x128/apps",
 }
