@@ -13,6 +13,7 @@ import (
 // ServerConfig holds all configuration for the HTTP server.
 type ServerConfig struct {
 	Store      *config.Store
+	ActStore   *activity.ActivityStore
 	AdminUser  string
 	AdminPass  string
 	BinDir     string
@@ -27,10 +28,9 @@ type ServerConfig struct {
 // New creates the HTTP handler with all routes configured.
 func New(cfg ServerConfig) http.Handler {
 	tmpl := parseTemplates()
-	actStore := activity.NewActivityStore(cfg.DataDir + "/activity")
 	h := &handlers{
 		store:      cfg.Store,
-		actStore:   actStore,
+		actStore:   cfg.ActStore,
 		tmpl:       tmpl,
 		adminUser:  cfg.AdminUser,
 		adminPass:  cfg.AdminPass,
@@ -55,6 +55,7 @@ func New(cfg ServerConfig) http.Handler {
 	// Static assets (no auth)
 	mux.Handle("GET /manifest.json", staticHandler())
 	mux.Handle("GET /icon.svg", staticHandler())
+	mux.Handle("GET /chart.min.js", staticHandler())
 
 	// Login/logout/language (no auth)
 	mux.HandleFunc("GET /login", h.loginPage)
@@ -67,6 +68,11 @@ func New(cfg ServerConfig) http.Handler {
 	protected.HandleFunc("GET /", h.index)
 	protected.HandleFunc("GET /api/status", h.apiStatus)
 	protected.HandleFunc("GET /activity", h.activityPage)
+	protected.HandleFunc("GET /dashboard", h.dashboardPage)
+	protected.HandleFunc("GET /api/chart/screentime", h.apiChartScreenTime)
+	protected.HandleFunc("GET /api/chart/apptime", h.apiChartAppTime)
+	protected.HandleFunc("GET /api/chart/users", h.apiChartUsers)
+	protected.HandleFunc("GET /api/chart/apps", h.apiChartApps)
 	protected.HandleFunc("POST /users", h.addUser)
 	protected.HandleFunc("DELETE /users/{name}", h.deleteUser)
 	protected.HandleFunc("POST /users/{name}/schedules", h.addSchedule)

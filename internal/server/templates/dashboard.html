@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="{{.Lang}}" data-theme="auto">
+{{template "head"}}
+<body>
+    <script src="/chart.min.js"></script>
+    <main class="container">
+        {{template "nav" .}}
+
+        <article>
+            <header><strong>{{t .Lang "nav.dashboard"}}</strong></header>
+            <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: end;">
+                <label>{{t .Lang "dashboard.user"}}
+                    <select id="user-select" onchange="onUserChange()">
+                        {{range .Data.Users}}<option value="{{.}}">{{.}}</option>{{end}}
+                    </select>
+                </label>
+                <label>{{t .Lang "dashboard.from"}}
+                    <input type="date" id="date-from" value="{{.Data.From}}">
+                </label>
+                <label>{{t .Lang "dashboard.to"}}
+                    <input type="date" id="date-to" value="{{.Data.To}}">
+                </label>
+                <button onclick="loadCharts()">{{t .Lang "dashboard.update"}}</button>
+            </div>
+        </article>
+
+        <article>
+            <header><strong>{{t .Lang "dashboard.screentime"}}</strong></header>
+            <canvas id="screentime-chart" height="100"></canvas>
+        </article>
+
+        <article>
+            <header><strong>{{t .Lang "dashboard.apptime"}}</strong></header>
+            <div style="margin-bottom: 0.5rem;">
+                <label>{{t .Lang "dashboard.filterApp"}}
+                    <select id="app-select" onchange="loadCharts()">
+                        <option value="">{{t .Lang "dashboard.allApps"}}</option>
+                    </select>
+                </label>
+            </div>
+            <canvas id="apptime-chart" height="150"></canvas>
+        </article>
+    </main>
+
+    <script>
+    let stChart = null;
+    let atChart = null;
+
+    function getParams() {
+        return {
+            user: document.getElementById('user-select').value,
+            from: document.getElementById('date-from').value,
+            to: document.getElementById('date-to').value,
+            app: document.getElementById('app-select').value
+        };
+    }
+
+    function formatMinutes(seconds) {
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        return h > 0 ? h + 'h ' + m + 'm' : m + 'm';
+    }
+
+    async function loadCharts() {
+        const p = getParams();
+        const headers = {};
+        const cookie = document.cookie.split(';').find(c => c.trim().startsWith('parentald_session='));
+
+        // Screen time chart
+        const stResp = await fetch(`/api/chart/screentime?user=${p.user}&from=${p.from}&to=${p.to}`);
+        const stData = await stResp.json();
+
+        if (stChart) stChart.destroy();
+        stChart = new Chart(document.getElementById('screentime-chart'), {
+            type: 'bar',
+            data: {
+                labels: (stData || []).map(d => d.date),
+                datasets: [{
+                    label: p.user,
+                    data: (stData || []).map(d => Math.round(d.seconds / 60)),
+                    backgroundColor: 'rgba(99, 102, 241, 0.6)',
+                    borderColor: 'rgb(99, 102, 241)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: { display: true, text: 'Minutes' },
+                        ticks: { callback: v => formatMinutes(v * 60) }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: { label: ctx => formatMinutes(ctx.raw * 60) }
+                    }
+                }
+            }
+        });
+
+        // App time chart
+        const atResp = await fetch(`/api/chart/apptime?user=${p.user}&app=${p.app}&from=${p.from}&to=${p.to}`);
+        const atData = await atResp.json();
+
+        // Group by app name for stacked bar
+        const dates = [...new Set((atData || []).map(d => d.date))].sort();
+        const apps = [...new Set((atData || []).map(d => d.appName))];
+        const colors = ['#6366f1','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#f97316','#84cc16','#ec4899','#14b8a6'];
+
+        const datasets = apps.map((app, i) => ({
+            label: app,
+            data: dates.map(date => {
+                const entry = (atData || []).find(d => d.date === date && d.appName === app);
+                return entry ? Math.round(entry.seconds / 60) : 0;
+            }),
+            backgroundColor: colors[i % colors.length] + '99',
+            borderColor: colors[i % colors.length],
+            borderWidth: 1
+        }));
+
+        if (atChart) atChart.destroy();
+        atChart = new Chart(document.getElementById('apptime-chart'), {
+            type: 'bar',
+            data: { labels: dates, datasets: datasets },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { stacked: true },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        title: { display: true, text: 'Minutes' },
+                        ticks: { callback: v => formatMinutes(v * 60) }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: { label: ctx => ctx.dataset.label + ': ' + formatMinutes(ctx.raw * 60) }
+                    }
+                }
+            }
+        });
+    }
+
+    async function onUserChange() {
+        const user = document.getElementById('user-select').value;
+        const resp = await fetch(`/api/chart/apps?user=${user}`);
+        const apps = await resp.json();
+        const select = document.getElementById('app-select');
+        select.innerHTML = '<option value="">{{t .Lang "dashboard.allApps"}}</option>';
+        (apps || []).forEach(app => {
+            const opt = document.createElement('option');
+            opt.value = app;
+            opt.textContent = app;
+            select.appendChild(opt);
+        });
+        loadCharts();
+    }
+
+    // Load on page ready
+    document.addEventListener('DOMContentLoaded', () => {
+        onUserChange();
+    });
+    </script>
+</body>
+</html>

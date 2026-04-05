@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/BorisWilhelms/parentald/internal/activity"
 	"github.com/BorisWilhelms/parentald/internal/config"
 	"github.com/BorisWilhelms/parentald/internal/crypto"
 	"github.com/BorisWilhelms/parentald/internal/server"
@@ -54,11 +55,19 @@ func main() {
 	}
 	log.Printf("loaded %d registered client(s)", len(clients))
 
+	// Migrate JSON activity data to SQLite (if needed)
+	actStore := activity.NewActivityStore(*dataDir)
+	jsonDir := filepath.Join(*dataDir, "activity")
+	if err := activity.MigrateFromJSON(jsonDir, actStore.DB()); err != nil {
+		log.Printf("warning: JSON migration failed: %v", err)
+	}
+
 	if *apiKey != "" {
 		log.Printf("API key authentication enabled")
 	}
 
 	handler := server.New(server.ServerConfig{
+		ActStore: actStore,
 		Store:      store,
 		AdminUser:  *adminUser,
 		AdminPass:  *adminPass,

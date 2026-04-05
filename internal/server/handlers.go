@@ -407,6 +407,90 @@ func (h *handlers) activityPage(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "activity.html", data)
 }
 
+func (h *handlers) dashboardPage(w http.ResponseWriter, r *http.Request) {
+	users, _ := h.actStore.ListUsers()
+	to := time.Now().Format("2006-01-02")
+	from := time.Now().AddDate(0, 0, -7).Format("2006-01-02")
+
+	data := struct {
+		Users []string
+		From  string
+		To    string
+	}{
+		Users: users,
+		From:  from,
+		To:    to,
+	}
+
+	h.render(w, r, "dashboard.html", data)
+}
+
+func (h *handlers) apiChartScreenTime(w http.ResponseWriter, r *http.Request) {
+	user := r.URL.Query().Get("user")
+	from := r.URL.Query().Get("from")
+	to := r.URL.Query().Get("to")
+
+	if user == "" || from == "" || to == "" {
+		http.Error(w, "user, from, to required", http.StatusBadRequest)
+		return
+	}
+
+	data, err := h.actStore.GetScreenTimeRange(user, from, to)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
+}
+
+func (h *handlers) apiChartAppTime(w http.ResponseWriter, r *http.Request) {
+	user := r.URL.Query().Get("user")
+	app := r.URL.Query().Get("app")
+	from := r.URL.Query().Get("from")
+	to := r.URL.Query().Get("to")
+
+	if user == "" || from == "" || to == "" {
+		http.Error(w, "user, from, to required", http.StatusBadRequest)
+		return
+	}
+
+	data, err := h.actStore.GetAppTimeRange(user, app, from, to)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
+}
+
+func (h *handlers) apiChartUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := h.actStore.ListUsers()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(users)
+}
+
+func (h *handlers) apiChartApps(w http.ResponseWriter, r *http.Request) {
+	user := r.URL.Query().Get("user")
+	if user == "" {
+		http.Error(w, "user required", http.StatusBadRequest)
+		return
+	}
+	apps, err := h.actStore.ListApps(user)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(apps)
+}
+
 func (h *handlers) renderUserList(w http.ResponseWriter, r *http.Request) {
 	cfg := h.store.Get()
 	h.render(w, r, "user_list.html", cfg)

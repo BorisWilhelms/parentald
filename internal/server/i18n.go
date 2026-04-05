@@ -56,6 +56,17 @@ var translations = map[string]map[string]string{
 		"activity.other":           "Other",
 		"activity.nodata":          "No activity data for this day.",
 
+		// Dashboard
+		"nav.dashboard":       "Dashboard",
+		"dashboard.user":      "User",
+		"dashboard.from":      "From",
+		"dashboard.to":        "To",
+		"dashboard.update":    "Update",
+		"dashboard.screentime": "Screen Time per Day",
+		"dashboard.apptime":   "App Usage per Day",
+		"dashboard.filterApp": "Filter app",
+		"dashboard.allApps":   "All apps",
+
 		// General
 		"until.unlimited":   "unlimited",
 	},
@@ -109,6 +120,17 @@ var translations = map[string]map[string]string{
 		"activity.cattotal.tip":    "Summe aller App-Laufzeiten in dieser Kategorie (Apps können parallel laufen)",
 		"activity.other":           "Sonstiges",
 		"activity.nodata":          "Keine Aktivitätsdaten für diesen Tag.",
+
+		// Dashboard
+		"nav.dashboard":       "Dashboard",
+		"dashboard.user":      "Benutzer",
+		"dashboard.from":      "Von",
+		"dashboard.to":        "Bis",
+		"dashboard.update":    "Aktualisieren",
+		"dashboard.screentime": "Bildschirmzeit pro Tag",
+		"dashboard.apptime":   "App-Nutzung pro Tag",
+		"dashboard.filterApp": "App filtern",
+		"dashboard.allApps":   "Alle Apps",
 
 		// General
 		"until.unlimited":   "unbegrenzt",
