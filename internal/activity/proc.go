@@ -100,9 +100,9 @@ func findTopLevelApps(procs map[int]*processInfo, uid int) []string {
 			name := resolveAppName(child)
 			seen[name] = true
 
-			// For Steam (and similar launchers): also find game executables
-			// in the subtree and report them separately.
-			findGameExecutables(child, seen)
+			// For launchers (Steam, etc.): also collect all descendant
+			// exe names so the tracker can match games individually.
+			collectSubtreeExes(child, seen)
 		}
 	}
 
@@ -113,20 +113,13 @@ func findTopLevelApps(procs map[int]*processInfo, uid int) []string {
 	return result
 }
 
-// gameExeSuffixes are file extensions that indicate a game executable.
-var gameExeSuffixes = []string{".exe", ".x86_64", ".x86"}
-
-// findGameExecutables walks a process subtree and adds game executables
-// (identified by .exe, .x86_64, .x86 suffix) to the seen set.
-func findGameExecutables(proc *processInfo, seen map[string]bool) {
-	for _, suffix := range gameExeSuffixes {
-		if strings.HasSuffix(proc.exe, suffix) {
-			seen[proc.exe] = true
-			return
-		}
-	}
+// collectSubtreeExes walks a process subtree and adds all unique
+// executable basenames. The tracker uses these to match launcher games
+// (e.g., valheim.x86_64 under Steam matched against Valheim.desktop).
+func collectSubtreeExes(proc *processInfo, seen map[string]bool) {
+	seen[proc.exe] = true
 	for _, child := range proc.children {
-		findGameExecutables(child, seen)
+		collectSubtreeExes(child, seen)
 	}
 }
 

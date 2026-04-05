@@ -71,7 +71,7 @@ func (t *Tracker) Tick(users []string) {
 				name = info.Name
 				category = info.Category
 				icon = info.Icon
-			} else if info, ok := t.desktop.LookupSteamGame(exeBasename); ok {
+			} else if info, ok := t.desktop.LookupGame(exeBasename); ok {
 				name = info.Name
 				category = info.Category
 				icon = info.Icon

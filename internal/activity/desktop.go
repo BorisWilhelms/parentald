@@ -16,17 +16,30 @@ var defaultDesktopDirs = []string{
 	"/var/lib/flatpak/exports/share/applications",
 }
 
-type steamGame struct {
-	name      string  // display name (e.g., "Valheim")
-	desktopID string  // lowercase desktop filename (e.g., "valheim")
-	info      AppInfo // full app info with icon
+// launcherGame represents a game managed by a launcher (Steam, Lutris, Heroic, etc.).
+type launcherGame struct {
+	name    string  // display name (e.g., "Valheim")
+	matchID string  // lowercase match key (e.g., "valheim")
+	info    AppInfo // full app info with icon
+}
+
+// LauncherConfig defines how to detect games for a specific launcher.
+type LauncherConfig struct {
+	// ExecPrefix identifies the launcher in .desktop Exec fields (e.g., "steam")
+	ExecPrefix string
+	// ExecContains identifies launcher-specific URLs (e.g., "steam://")
+	ExecContains string
+}
+
+var knownLaunchers = []LauncherConfig{
+	{ExecPrefix: "steam", ExecContains: "steam://"},
 }
 
 // DesktopLookup maps executable basenames to application info from .desktop files.
 type DesktopLookup struct {
-	apps       map[string]AppInfo
-	steamGames []steamGame
-	iconDirs   []string
+	apps      map[string]AppInfo
+	games     []launcherGame // games from all launchers
+	iconDirs  []string
 }
 
 // NewDesktopLookup scans standard .desktop file locations and builds a lookup table.
@@ -60,22 +73,28 @@ func (dl *DesktopLookup) Lookup(exeBasename string) (AppInfo, bool) {
 	return info, ok
 }
 
-// LookupSteamGame tries to match a game executable against registered Steam games.
-// Matches by fuzzy comparison: strips .exe, .x86_64, .x86 suffixes and compares
-// case-insensitively against the .desktop filename.
+// LookupGame tries to match a process executable against registered launcher games.
+// Normalizes the exe name (lowercase, strips common suffixes) and compares against
+// the .desktop filename of each registered game.
 // E.g., "valheim.x86_64" matches "Valheim.desktop", "Raft.exe" matches "Raft.desktop".
-func (dl *DesktopLookup) LookupSteamGame(exeBasename string) (AppInfo, bool) {
-	normalized := strings.ToLower(exeBasename)
-	normalized = strings.TrimSuffix(normalized, ".exe")
-	normalized = strings.TrimSuffix(normalized, ".x86_64")
-	normalized = strings.TrimSuffix(normalized, ".x86")
+func (dl *DesktopLookup) LookupGame(exeBasename string) (AppInfo, bool) {
+	normalized := normalizeGameExe(exeBasename)
 
-	for _, game := range dl.steamGames {
-		if game.desktopID == normalized {
+	for _, game := range dl.games {
+		if game.matchID == normalized {
 			return game.info, true
 		}
 	}
 	return AppInfo{}, false
+}
+
+// normalizeGameExe strips common game executable suffixes and lowercases.
+func normalizeGameExe(name string) string {
+	n := strings.ToLower(name)
+	for _, suffix := range []string{".exe", ".x86_64", ".x86", ".bin", ".sh"} {
+		n = strings.TrimSuffix(n, suffix)
+	}
+	return n
 }
 
 func (dl *DesktopLookup) scanDir(dir string) {
@@ -155,17 +174,18 @@ func (dl *DesktopLookup) parseFile(path string) {
 		}
 	}
 
-	// Steam game shortcuts (Exec=steam steam://rungameid/...) get registered
-	// by their .desktop filename and a normalized game name for fuzzy matching
-	// against game executables (e.g., Valheim.desktop matches valheim.x86_64).
-	if exeBasename == "steam" && strings.Contains(execField, "steam://") {
-		desktopID := strings.TrimSuffix(filepath.Base(path), ".desktop")
-		dl.steamGames = append(dl.steamGames, steamGame{
-			name:      name,
-			desktopID: strings.ToLower(desktopID),
-			info:      info,
-		})
-		return
+	// Launcher game shortcuts (e.g., Exec=steam steam://rungameid/...) get
+	// registered for fuzzy matching against game executables.
+	for _, launcher := range knownLaunchers {
+		if exeBasename == launcher.ExecPrefix && strings.Contains(execField, launcher.ExecContains) {
+			desktopID := strings.TrimSuffix(filepath.Base(path), ".desktop")
+			dl.games = append(dl.games, launcherGame{
+				name:    name,
+				matchID: strings.ToLower(desktopID),
+				info:    info,
+			})
+			return
+		}
 	}
 
 	// Don't overwrite — first entry wins
