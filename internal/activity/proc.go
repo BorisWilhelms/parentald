@@ -180,8 +180,8 @@ func appIDFromCgroup(pid int) string {
 // parseAppIDFromCgroupData parses cgroup data to extract an app ID.
 func parseAppIDFromCgroupData(data string) string {
 	for _, line := range strings.Split(data, "\n") {
-		// Look for app-*.scope pattern
-		idx := strings.Index(line, "/app-")
+		// Look for app-*.scope pattern (use LastIndex to skip "app.slice" in the path)
+		idx := strings.LastIndex(line, "/app-")
 		if idx < 0 {
 			continue
 		}
