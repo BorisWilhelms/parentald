@@ -234,6 +234,14 @@ func trackAndReport(tracker *activity.Tracker, cfg config.Config, serverURL stri
 		return
 	}
 
+	for user, apps := range report.Users {
+		names := make([]string, len(apps))
+		for i, a := range apps {
+			names[i] = a.Name
+		}
+		log.Printf("debug: report for %s: %v", user, names)
+	}
+
 	if err := sendReport(serverURL, report, clientPriv, clientPub); err != nil {
 		log.Printf("failed to send activity report: %v", err)
 		tracker.Merge(report)
