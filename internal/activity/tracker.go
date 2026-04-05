@@ -1,7 +1,6 @@
 package activity
 
 import (
-	"log"
 	"os"
 	"sync"
 	"time"
@@ -55,10 +54,8 @@ func (t *Tracker) Tick(users []string) {
 
 		processes, err := ScanUserProcesses(username)
 		if err != nil {
-			log.Printf("debug: ScanUserProcesses(%s) error: %v", username, err)
 			continue
 		}
-		log.Printf("debug: ScanUserProcesses(%s) returned %d processes: %v", username, len(processes), processes)
 
 		if t.accum[username] == nil {
 			t.accum[username] = make(map[string]*appEntry)
@@ -71,7 +68,6 @@ func (t *Tracker) Tick(users []string) {
 			var icon *string
 
 			if info, ok := t.desktop.Lookup(exeBasename); ok {
-				log.Printf("debug: desktop lookup %q -> Name=%q", exeBasename, info.Name)
 				name = info.Name
 				category = info.Category
 				icon = info.Icon

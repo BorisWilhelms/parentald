@@ -109,6 +109,12 @@ func (dl *DesktopLookup) parseFile(path string) {
 		return
 	}
 
+	// Skip Steam game shortcuts (Exec=steam steam://rungameid/...) — these would
+	// overwrite the Steam app entry since they share the same executable.
+	if exeBasename == "steam" && strings.Contains(execField, "steam://") {
+		return
+	}
+
 	info := AppInfo{Name: name}
 	if categories != "" {
 		cat := firstCategory(categories)
@@ -122,7 +128,11 @@ func (dl *DesktopLookup) parseFile(path string) {
 		}
 	}
 
-	dl.apps[exeBasename] = info
+	// Don't overwrite — first entry wins (prevents Steam games from
+	// overwriting Steam itself, as games have Exec=steam steam://rungameid/...)
+	if _, exists := dl.apps[exeBasename]; !exists {
+		dl.apps[exeBasename] = info
+	}
 }
 
 func parseDesktopLine(line string) (key, value string, ok bool) {
