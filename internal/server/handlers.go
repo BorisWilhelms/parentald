@@ -275,16 +275,6 @@ func (h *handlers) lockUser(w http.ResponseWriter, r *http.Request) {
 
 func (h *handlers) unlockUser(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
-	now := time.Now()
-
-	cfg := h.store.Get()
-	user := cfg.Users[name]
-
-	// Only allow unlock if currently within a schedule window
-	if !config.IsInSchedule(user.Schedules, now) {
-		http.Error(w, "unlock only allowed during an active schedule", http.StatusBadRequest)
-		return
-	}
 
 	err := h.store.Update(func(cfg *config.Config) {
 		user := cfg.Users[name]

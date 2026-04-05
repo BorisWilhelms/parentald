@@ -14,9 +14,7 @@
 
     <div role="group" style="margin-bottom: 1rem;">
         {{if isLocked $user}}
-            {{if isInSchedule $user}}
             <button class="outline" hx-post="/users/{{$name}}/unlock" hx-target="#user-list" hx-swap="innerHTML">{{t $.Lang "user.unlock"}}</button>
-            {{end}}
         {{else}}
             <button class="outline contrast" hx-post="/users/{{$name}}/lock" hx-target="#user-list" hx-swap="innerHTML">{{t $.Lang "user.lock"}}</button>
         {{end}}
