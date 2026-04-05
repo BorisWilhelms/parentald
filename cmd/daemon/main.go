@@ -25,11 +25,8 @@ import (
 
 const configCachePath = "/etc/parentald/config-cache.json"
 
-// configResponse mirrors the server's merged config + version response.
-type configResponse struct {
-	Version string        `json:"version"`
-	Config  config.Config `json:"config"`
-}
+// Alias for convenience
+type configResponse = config.ConfigResponse
 
 func main() {
 	serverURL := flag.String("server", "http://localhost:8080", "parentald server URL")

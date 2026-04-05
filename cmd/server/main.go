@@ -58,7 +58,18 @@ func main() {
 		log.Printf("API key authentication enabled")
 	}
 
-	handler := server.New(store, *adminUser, *adminPass, *binDir, *dataDir, *apiKey, serverPub, serverPriv, clients, clientsDir)
+	handler := server.New(server.ServerConfig{
+		Store:      store,
+		AdminUser:  *adminUser,
+		AdminPass:  *adminPass,
+		BinDir:     *binDir,
+		DataDir:    *dataDir,
+		APIKey:     *apiKey,
+		ServerPub:  serverPub,
+		ServerPriv: serverPriv,
+		Clients:    clients,
+		ClientsDir: clientsDir,
+	})
 
 	log.Printf("parentald-server %s listening on %s", version.Version, *listen)
 	if err := http.ListenAndServe(*listen, handler); err != nil {

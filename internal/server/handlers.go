@@ -24,7 +24,6 @@ type handlers struct {
 	tmpl       *template.Template
 	adminUser  string
 	adminPass  string
-	secret     string
 	serverPub  ed25519.PublicKey
 	serverPriv ed25519.PrivateKey
 	clientsMu  sync.RWMutex
@@ -65,7 +64,7 @@ func (h *handlers) loginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, createSessionCookie(username, h.secret))
+	http.SetCookie(w, createSessionCookie(username, h.adminPass))
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -94,11 +93,8 @@ func (h *handlers) setLang(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, referer, http.StatusSeeOther)
 }
 
-// configResponse is the merged config + version endpoint response.
-type configResponse struct {
-	Version string        `json:"version"`
-	Config  config.Config `json:"config"`
-}
+// Alias for convenience
+type configResponse = config.ConfigResponse
 
 func (h *handlers) apiConfig(w http.ResponseWriter, r *http.Request) {
 	cfg := h.store.Get()

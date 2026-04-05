@@ -45,8 +45,9 @@ func (s *Store) Load() error {
 	return nil
 }
 
-// Save writes the current config to disk atomically.
-func (s *Store) Save() error {
+// save writes the current config to disk atomically.
+// Must be called while holding the write lock.
+func (s *Store) save() error {
 	data, err := json.MarshalIndent(s.cfg, "", "  ")
 	if err != nil {
 		return err
@@ -106,7 +107,7 @@ func (s *Store) Update(fn func(*Config)) error {
 
 	fn(&s.cfg)
 	s.cleanupExpired(time.Now())
-	return s.Save()
+	return s.save()
 }
 
 // cleanupExpired clears LockedUntil and BonusUntil fields that are in the past.

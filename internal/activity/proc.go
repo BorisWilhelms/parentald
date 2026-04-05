@@ -206,12 +206,14 @@ func readUIDAndPPID(pid int) (uid, ppid int) {
 			if len(fields) >= 2 {
 				uid, _ = strconv.Atoi(fields[1])
 			}
-		}
-		if strings.HasPrefix(line, "PPid:") {
+		} else if strings.HasPrefix(line, "PPid:") {
 			fields := strings.Fields(line)
 			if len(fields) >= 2 {
 				ppid, _ = strconv.Atoi(fields[1])
 			}
+		}
+		if uid != -1 && ppid != -1 {
+			break
 		}
 	}
 	return uid, ppid

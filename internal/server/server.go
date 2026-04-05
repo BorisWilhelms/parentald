@@ -10,27 +10,37 @@ import (
 	"github.com/BorisWilhelms/parentald/internal/config"
 )
 
-// New creates the HTTP handler with all routes configured.
-func New(store *config.Store, adminUser, adminPass, binDir, dataDir, apiKey string,
-	serverPub ed25519.PublicKey, serverPriv ed25519.PrivateKey,
-	clients []ed25519.PublicKey, clientsDir string) http.Handler {
+// ServerConfig holds all configuration for the HTTP server.
+type ServerConfig struct {
+	Store      *config.Store
+	AdminUser  string
+	AdminPass  string
+	BinDir     string
+	DataDir    string
+	APIKey     string
+	ServerPub  ed25519.PublicKey
+	ServerPriv ed25519.PrivateKey
+	Clients    []ed25519.PublicKey
+	ClientsDir string
+}
 
+// New creates the HTTP handler with all routes configured.
+func New(cfg ServerConfig) http.Handler {
 	tmpl := parseTemplates()
-	actStore := activity.NewActivityStore(dataDir + "/activity")
+	actStore := activity.NewActivityStore(cfg.DataDir + "/activity")
 	h := &handlers{
-		store:      store,
+		store:      cfg.Store,
 		actStore:   actStore,
 		tmpl:       tmpl,
-		adminUser:  adminUser,
-		adminPass:  adminPass,
-		secret:     adminPass,
-		apiKey:     apiKey,
-		serverPub:  serverPub,
-		serverPriv: serverPriv,
-		clients:    clients,
-		clientsDir: clientsDir,
+		adminUser:  cfg.AdminUser,
+		adminPass:  cfg.AdminPass,
+		apiKey:     cfg.APIKey,
+		serverPub:  cfg.ServerPub,
+		serverPriv: cfg.ServerPriv,
+		clients:    cfg.Clients,
+		clientsDir: cfg.ClientsDir,
 	}
-	ih := &installHandlers{binDir: binDir, serverPub: serverPub, serverPriv: serverPriv}
+	ih := &installHandlers{binDir: cfg.BinDir, serverPub: cfg.ServerPub, serverPriv: cfg.ServerPriv}
 
 	mux := http.NewServeMux()
 
@@ -65,7 +75,7 @@ func New(store *config.Store, adminUser, adminPass, binDir, dataDir, apiKey stri
 	protected.HandleFunc("POST /users/{name}/unlock", h.unlockUser)
 	protected.HandleFunc("POST /users/{name}/bonus", h.addBonus)
 
-	mux.Handle("/", cookieAuth(protected, h.secret, h.apiKey))
+	mux.Handle("/", cookieAuth(protected, h.adminPass, h.apiKey))
 
 	return requestLogger(mux)
 }
