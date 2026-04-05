@@ -14,7 +14,8 @@ type processInfo struct {
 	pid      int
 	ppid     int
 	exe      string
-	comm     string // process name from /proc/<pid>/comm (useful for Wine/Proton games)
+	comm     string // process name from /proc/<pid>/comm
+	cmdline  string // full command line from /proc/<pid>/cmdline
 	children []*processInfo
 }
 
@@ -72,11 +73,17 @@ func buildProcessTree(uid int) map[int]*processInfo {
 			comm = strings.TrimSpace(string(commData))
 		}
 
+		cmdline := ""
+		if cmdData, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid)); err == nil {
+			cmdline = strings.ReplaceAll(string(cmdData), "\x00", " ")
+		}
+
 		procs[pid] = &processInfo{
-			pid:  pid,
-			ppid: ppid,
-			exe:  filepath.Base(exe),
-			comm: comm,
+			pid:     pid,
+			ppid:    ppid,
+			exe:     filepath.Base(exe),
+			comm:    comm,
+			cmdline: cmdline,
 		}
 	}
 
@@ -129,17 +136,38 @@ var winePreloaders = map[string]bool{
 }
 
 // collectSubtreeExes walks a process subtree and adds all unique
-// executable basenames. The tracker uses these to match launcher games.
+// executable basenames and launcher App IDs. The tracker uses these
+// to match launcher games.
 // For Wine/Proton processes, uses the comm name instead of the exe path.
+// For reaper processes, extracts the Steam AppId from the cmdline.
 func collectSubtreeExes(proc *processInfo, seen map[string]bool) {
 	if winePreloaders[proc.exe] && proc.comm != "" {
 		seen[proc.comm] = true
 	} else {
 		seen[proc.exe] = true
 	}
+
+	// Extract Steam AppId from reaper cmdline: "reaper SteamLaunch AppId=892970 -- ..."
+	if proc.exe == "reaper" {
+		if appID := extractReaperAppID(proc.cmdline); appID != "" {
+			seen["appid:"+appID] = true
+		}
+	}
+
 	for _, child := range proc.children {
 		collectSubtreeExes(child, seen)
 	}
+}
+
+// extractReaperAppID extracts the AppId from a Steam reaper process cmdline.
+// Format: "reaper SteamLaunch AppId=892970 -- ..."
+func extractReaperAppID(cmdline string) string {
+	for _, part := range strings.Fields(cmdline) {
+		if strings.HasPrefix(part, "AppId=") {
+			return strings.TrimPrefix(part, "AppId=")
+		}
+	}
+	return ""
 }
 
 // resolveAppName determines the app name for a top-level process.

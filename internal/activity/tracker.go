@@ -2,6 +2,7 @@ package activity
 
 import (
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -64,10 +65,19 @@ func (t *Tracker) Tick(users []string) {
 		for _, exeBasename := range processes {
 			name := exeBasename
 			var category *string
-
 			var icon *string
 
-			if info, ok := t.desktop.Lookup(exeBasename); ok {
+			// Check for App ID match first (most reliable for Steam games)
+			if strings.HasPrefix(exeBasename, "appid:") {
+				appID := strings.TrimPrefix(exeBasename, "appid:")
+				if info, ok := t.desktop.LookupGameByAppID(appID); ok {
+					name = info.Name
+					category = info.Category
+					icon = info.Icon
+				} else {
+					continue // unknown app ID, skip
+				}
+			} else if info, ok := t.desktop.Lookup(exeBasename); ok {
 				name = info.Name
 				category = info.Category
 				icon = info.Icon
@@ -76,7 +86,6 @@ func (t *Tracker) Tick(users []string) {
 				category = info.Category
 				icon = info.Icon
 			} else if iconURI := t.desktop.resolveIcon(exeBasename); iconURI != "" {
-				// No desktop match, but try to find an icon by process name
 				icon = &iconURI
 			}
 

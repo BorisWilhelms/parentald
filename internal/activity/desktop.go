@@ -19,7 +19,8 @@ var defaultDesktopDirs = []string{
 // launcherGame represents a game managed by a launcher (Steam, Lutris, Heroic, etc.).
 type launcherGame struct {
 	name    string  // display name (e.g., "Valheim")
-	matchID string  // lowercase match key (e.g., "valheim")
+	matchID string  // normalized desktop filename (e.g., "valheim")
+	appID   string  // launcher-specific ID (e.g., "892970" for Steam)
 	info    AppInfo // full app info with icon
 }
 
@@ -73,19 +74,46 @@ func (dl *DesktopLookup) Lookup(exeBasename string) (AppInfo, bool) {
 	return info, ok
 }
 
-// LookupGame tries to match a process executable against registered launcher games.
-// Normalizes the exe name (lowercase, strips common suffixes) and compares against
-// the .desktop filename of each registered game.
-// E.g., "valheim.x86_64" matches "Valheim.desktop", "Raft.exe" matches "Raft.desktop".
+// LookupGame tries to match a process name against registered launcher games.
+// Tries App ID first (most reliable), then falls back to fuzzy name matching.
 func (dl *DesktopLookup) LookupGame(exeBasename string) (AppInfo, bool) {
 	normalized := normalizeGameName(exeBasename)
-
 	for _, game := range dl.games {
 		if game.matchID == normalized {
 			return game.info, true
 		}
 	}
 	return AppInfo{}, false
+}
+
+// LookupGameByAppID matches a launcher-specific App ID against registered games.
+// E.g., "892970" matches Valheim's Exec=steam steam://rungameid/892970.
+func (dl *DesktopLookup) LookupGameByAppID(appID string) (AppInfo, bool) {
+	for _, game := range dl.games {
+		if game.appID == appID {
+			return game.info, true
+		}
+	}
+	return AppInfo{}, false
+}
+
+// extractAppID extracts the game/app ID from a launcher Exec field.
+// E.g., "steam steam://rungameid/892970" with prefix "steam://" → "892970".
+func extractAppID(execField, urlPrefix string) string {
+	idx := strings.Index(execField, urlPrefix)
+	if idx < 0 {
+		return ""
+	}
+	rest := execField[idx+len(urlPrefix):]
+	// Take everything until the next space or end
+	if spaceIdx := strings.IndexByte(rest, ' '); spaceIdx >= 0 {
+		rest = rest[:spaceIdx]
+	}
+	// For steam://rungameid/892970, strip the path prefix
+	if slashIdx := strings.LastIndexByte(rest, '/'); slashIdx >= 0 {
+		rest = rest[slashIdx+1:]
+	}
+	return rest
 }
 
 // normalizeGameName strips suffixes, lowercases, and removes spaces/special chars
@@ -180,13 +208,15 @@ func (dl *DesktopLookup) parseFile(path string) {
 	}
 
 	// Launcher game shortcuts (e.g., Exec=steam steam://rungameid/...) get
-	// registered for fuzzy matching against game executables.
+	// registered for matching by App ID and fuzzy name.
 	for _, launcher := range knownLaunchers {
 		if exeBasename == launcher.ExecPrefix && strings.Contains(execField, launcher.ExecContains) {
 			desktopID := strings.TrimSuffix(filepath.Base(path), ".desktop")
+			appID := extractAppID(execField, launcher.ExecContains)
 			dl.games = append(dl.games, launcherGame{
 				name:    name,
 				matchID: normalizeGameName(desktopID),
+				appID:   appID,
 				info:    info,
 			})
 			return
