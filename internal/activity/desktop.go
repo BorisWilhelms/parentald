@@ -16,10 +16,17 @@ var defaultDesktopDirs = []string{
 	"/var/lib/flatpak/exports/share/applications",
 }
 
+type steamGame struct {
+	name      string  // display name (e.g., "Valheim")
+	desktopID string  // lowercase desktop filename (e.g., "valheim")
+	info      AppInfo // full app info with icon
+}
+
 // DesktopLookup maps executable basenames to application info from .desktop files.
 type DesktopLookup struct {
-	apps     map[string]AppInfo
-	iconDirs []string
+	apps       map[string]AppInfo
+	steamGames []steamGame
+	iconDirs   []string
 }
 
 // NewDesktopLookup scans standard .desktop file locations and builds a lookup table.
@@ -51,6 +58,24 @@ func NewDesktopLookup(usernames []string) *DesktopLookup {
 func (dl *DesktopLookup) Lookup(exeBasename string) (AppInfo, bool) {
 	info, ok := dl.apps[exeBasename]
 	return info, ok
+}
+
+// LookupSteamGame tries to match a game executable against registered Steam games.
+// Matches by fuzzy comparison: strips .exe, .x86_64, .x86 suffixes and compares
+// case-insensitively against the .desktop filename.
+// E.g., "valheim.x86_64" matches "Valheim.desktop", "Raft.exe" matches "Raft.desktop".
+func (dl *DesktopLookup) LookupSteamGame(exeBasename string) (AppInfo, bool) {
+	normalized := strings.ToLower(exeBasename)
+	normalized = strings.TrimSuffix(normalized, ".exe")
+	normalized = strings.TrimSuffix(normalized, ".x86_64")
+	normalized = strings.TrimSuffix(normalized, ".x86")
+
+	for _, game := range dl.steamGames {
+		if game.desktopID == normalized {
+			return game.info, true
+		}
+	}
+	return AppInfo{}, false
 }
 
 func (dl *DesktopLookup) scanDir(dir string) {
@@ -117,12 +142,6 @@ func (dl *DesktopLookup) parseFile(path string) {
 		return
 	}
 
-	// Skip Steam game shortcuts (Exec=steam steam://rungameid/...) — these would
-	// overwrite the Steam app entry since they share the same executable.
-	if exeBasename == "steam" && strings.Contains(execField, "steam://") {
-		return
-	}
-
 	info := AppInfo{Name: name}
 	if categories != "" {
 		cat := firstCategory(categories)
@@ -136,15 +155,25 @@ func (dl *DesktopLookup) parseFile(path string) {
 		}
 	}
 
-	// Don't overwrite — first entry wins (prevents Steam games from
-	// overwriting Steam itself, as games have Exec=steam steam://rungameid/...)
+	// Steam game shortcuts (Exec=steam steam://rungameid/...) get registered
+	// by their .desktop filename and a normalized game name for fuzzy matching
+	// against game executables (e.g., Valheim.desktop matches valheim.x86_64).
+	if exeBasename == "steam" && strings.Contains(execField, "steam://") {
+		desktopID := strings.TrimSuffix(filepath.Base(path), ".desktop")
+		dl.steamGames = append(dl.steamGames, steamGame{
+			name:      name,
+			desktopID: strings.ToLower(desktopID),
+			info:      info,
+		})
+		return
+	}
+
+	// Don't overwrite — first entry wins
 	if _, exists := dl.apps[exeBasename]; !exists {
 		dl.apps[exeBasename] = info
 	}
 
 	// Also register by .desktop filename (without extension) as a secondary key.
-	// This helps match cgroup-based app IDs (e.g., cgroup "steam" matches "steam.desktop"
-	// even when Exec is "/usr/bin/bazzite-steam").
 	desktopID := strings.TrimSuffix(filepath.Base(path), ".desktop")
 	if desktopID != exeBasename {
 		if _, exists := dl.apps[desktopID]; !exists {

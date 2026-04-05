@@ -85,6 +85,7 @@ func buildProcessTree(uid int) map[int]*processInfo {
 
 // findTopLevelApps finds session roots and returns their direct children's exe names.
 // A session root is a user process whose parent is NOT owned by the same user.
+// For Steam-like app scopes, it also extracts game executables from the subtree.
 func findTopLevelApps(procs map[int]*processInfo, uid int) []string {
 	seen := make(map[string]bool)
 
@@ -98,6 +99,10 @@ func findTopLevelApps(procs map[int]*processInfo, uid int) []string {
 		for _, child := range proc.children {
 			name := resolveAppName(child)
 			seen[name] = true
+
+			// For Steam (and similar launchers): also find game executables
+			// in the subtree and report them separately.
+			findGameExecutables(child, seen)
 		}
 	}
 
@@ -106,6 +111,23 @@ func findTopLevelApps(procs map[int]*processInfo, uid int) []string {
 		result = append(result, name)
 	}
 	return result
+}
+
+// gameExeSuffixes are file extensions that indicate a game executable.
+var gameExeSuffixes = []string{".exe", ".x86_64", ".x86"}
+
+// findGameExecutables walks a process subtree and adds game executables
+// (identified by .exe, .x86_64, .x86 suffix) to the seen set.
+func findGameExecutables(proc *processInfo, seen map[string]bool) {
+	for _, suffix := range gameExeSuffixes {
+		if strings.HasSuffix(proc.exe, suffix) {
+			seen[proc.exe] = true
+			return
+		}
+	}
+	for _, child := range proc.children {
+		findGameExecutables(child, seen)
+	}
 }
 
 // resolveAppName determines the app name for a top-level process.
