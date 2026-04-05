@@ -18,13 +18,17 @@ var defaultDesktopDirs = []string{
 
 // DesktopLookup maps executable basenames to application info from .desktop files.
 type DesktopLookup struct {
-	apps map[string]AppInfo
+	apps     map[string]AppInfo
+	iconDirs []string
 }
 
 // NewDesktopLookup scans standard .desktop file locations and builds a lookup table.
-// usernames are used to find per-user flatpak installs.
+// usernames are used to find per-user flatpak installs and icon directories.
 func NewDesktopLookup(usernames []string) *DesktopLookup {
-	dl := &DesktopLookup{apps: make(map[string]AppInfo)}
+	dl := &DesktopLookup{
+		apps:     make(map[string]AppInfo),
+		iconDirs: append([]string{}, iconSearchDirs...),
+	}
 	for _, dir := range defaultDesktopDirs {
 		dl.scanDir(dir)
 	}
@@ -35,6 +39,10 @@ func NewDesktopLookup(usernames []string) *DesktopLookup {
 		}
 		dl.scanDir(filepath.Join(u.HomeDir, ".local", "share", "flatpak", "exports", "share", "applications"))
 		dl.scanDir(filepath.Join(u.HomeDir, ".local", "share", "applications"))
+		// Add per-user icon directories
+		for _, size := range []string{"48x48", "64x64", "128x128", "scalable", "256x256"} {
+			dl.iconDirs = append(dl.iconDirs, filepath.Join(u.HomeDir, ".local", "share", "icons", "hicolor", size, "apps"))
+		}
 	}
 	return dl
 }
@@ -123,7 +131,7 @@ func (dl *DesktopLookup) parseFile(path string) {
 		}
 	}
 	if iconName != "" {
-		if dataURI := resolveIcon(iconName); dataURI != "" {
+		if dataURI := dl.resolveIcon(iconName); dataURI != "" {
 			info.Icon = &dataURI
 		}
 	}
@@ -132,6 +140,16 @@ func (dl *DesktopLookup) parseFile(path string) {
 	// overwriting Steam itself, as games have Exec=steam steam://rungameid/...)
 	if _, exists := dl.apps[exeBasename]; !exists {
 		dl.apps[exeBasename] = info
+	}
+
+	// Also register by .desktop filename (without extension) as a secondary key.
+	// This helps match cgroup-based app IDs (e.g., cgroup "steam" matches "steam.desktop"
+	// even when Exec is "/usr/bin/bazzite-steam").
+	desktopID := strings.TrimSuffix(filepath.Base(path), ".desktop")
+	if desktopID != exeBasename {
+		if _, exists := dl.apps[desktopID]; !exists {
+			dl.apps[desktopID] = info
+		}
 	}
 }
 
@@ -218,14 +236,14 @@ var iconSearchDirs = []string{
 
 // resolveIcon finds an icon file and returns it as a data URI.
 // iconName can be an absolute path or a theme icon name (e.g., "firefox").
-func resolveIcon(iconName string) string {
+func (dl *DesktopLookup) resolveIcon(iconName string) string {
 	// If it's an absolute path, read directly
 	if filepath.IsAbs(iconName) {
 		return readIconAsDataURI(iconName)
 	}
 
-	// Search in standard directories
-	for _, dir := range iconSearchDirs {
+	// Search in all known icon directories (system + per-user)
+	for _, dir := range dl.iconDirs {
 		// Try exact name with extensions
 		for _, ext := range []string{".png", ".svg", ".xpm"} {
 			path := filepath.Join(dir, iconName+ext)

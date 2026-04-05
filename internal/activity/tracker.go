@@ -71,6 +71,9 @@ func (t *Tracker) Tick(users []string) {
 				name = info.Name
 				category = info.Category
 				icon = info.Icon
+			} else if iconURI := t.desktop.resolveIcon(exeBasename); iconURI != "" {
+				// No desktop match, but try to find an icon by process name
+				icon = &iconURI
 			}
 
 			entry := t.accum[username][name]
