@@ -1,6 +1,7 @@
 package activity
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -295,12 +296,19 @@ func parseAppIDFromCgroupData(data string) string {
 }
 
 // IsSessionActive checks if the user has at least one active (not idle, not locked) session.
-// Returns true if loginctl is not available (fail-open for tracking).
+// Returns true only if loginctl itself is unavailable (fail-open). If loginctl runs but reports
+// the user as unknown or without sessions, returns false.
 func IsSessionActive(username string) bool {
 	// Get session IDs for the user
 	out, err := exec.Command("loginctl", "show-user", username, "--property=Sessions").CombinedOutput()
 	if err != nil {
-		return true // fail-open
+		// If loginctl ran but failed (user not known / not logged in) → not active.
+		// Only fail-open when the binary itself could not be executed.
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return false
+		}
+		return true // loginctl not found or other OS error — fail-open
 	}
 
 	line := strings.TrimSpace(string(out))

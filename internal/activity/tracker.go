@@ -62,6 +62,11 @@ func (t *Tracker) Tick(users []string) {
 			t.accum[username] = make(map[string]*appEntry)
 		}
 
+		// seenNames deduplicates within a single tick: multiple process identifiers
+		// (e.g. "appid:892970" and "valheim.x86_64") can resolve to the same display
+		// name and must only be counted once.
+		seenNames := make(map[string]bool)
+
 		for _, exeBasename := range processes {
 			name := exeBasename
 			var category *string
@@ -88,6 +93,11 @@ func (t *Tracker) Tick(users []string) {
 			} else if iconURI := t.desktop.resolveIcon(exeBasename); iconURI != "" {
 				icon = &iconURI
 			}
+
+			if seenNames[name] {
+				continue
+			}
+			seenNames[name] = true
 
 			entry := t.accum[username][name]
 			if entry == nil {
