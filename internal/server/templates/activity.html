@@ -1,72 +1,78 @@
 <!DOCTYPE html>
-<html lang="{{.Lang}}" data-theme="auto">
+<html lang="{{.Lang}}">
 {{template "head"}}
 <body>
-    <main class="container">
-        {{template "nav" .}}
+<div class="shell">
+    {{template "nav" (dict "Lang" .Lang "Page" "activity")}}
+    <div class="content">
+        <main class="main">
+            <div class="page-head"><h1>{{t .Lang "nav.activity"}}</h1></div>
 
-        <div style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-            <a href="/activity?date={{prevDate .Data.Date}}" role="button" class="outline" style="width: auto; padding: 0.25rem 0.75rem; margin: 0;">&larr;</a>
-            <strong>{{.Data.Date}}</strong>
-            <a href="/activity?date={{nextDate .Data.Date}}" role="button" class="outline" style="width: auto; padding: 0.25rem 0.75rem; margin: 0;">&rarr;</a>
-        </div>
+            <div class="datebar">
+                <a class="btn btn-ghost btn-icon" href="/activity?date={{prevDate .Data.Date}}" aria-label="&larr;">{{template "i" "left"}}</a>
+                <label class="center">
+                    <strong>{{dateLabel .Lang .Data.Date}}</strong>
+                    <small>{{.Data.Date}}</small>
+                    <input type="date" value="{{.Data.Date}}" onchange="if(this.value) location.href='/activity?date='+this.value">
+                </label>
+                <a class="btn btn-ghost btn-icon" href="/activity?date={{nextDate .Data.Date}}" aria-label="&rarr;" {{if isToday .Data.Date}}aria-disabled="true" tabindex="-1"{{end}}>{{template "i" "right"}}</a>
+            </div>
 
-        {{if .Data.Users}}
-            {{range $name, $ua := .Data.Users}}
-            <article>
-                <header>
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <strong style="font-size: 1.1rem;">{{$name}}</strong>
-                        <small title="{{t $.Lang "activity.screentime.tip"}}">{{t $.Lang "activity.screentime"}}: {{formatDuration $ua.ScreenTime}}</small>
+            {{if .Data.Users}}
+            <div class="users">
+                {{range $name, $ua := .Data.Users}}
+                {{- $cats := sortedCats $ua}}{{$apps := sortedApps $ua}}{{$max := maxApp $ua}}
+                <article class="card">
+                    <div class="hero">
+                        <div class="avatar" style="--hue: {{avatarHue $name}}">{{initial $name}}</div>
+                        <div class="who"><h2>{{$name}}</h2></div>
+                        <div class="big" title="{{t $.Lang "activity.screentime.tip"}}">
+                            <strong>{{formatDuration $ua.ScreenTime}}</strong>
+                            <small>{{t $.Lang "activity.screentime"}}</small>
+                        </div>
                     </div>
-                </header>
 
-                {{range $cat, $apps := $ua.ByCategory}}
-                    {{if ne $cat "Other"}}
-                    <details open>
-                        <summary style="border-bottom: 1px solid var(--pico-muted-border-color); padding-bottom: 0.2rem;">{{$cat}} <small title="{{t $.Lang "activity.cattotal.tip"}}">{{formatDuration (index $ua.CategoryTotals $cat)}}</small></summary>
-                        <table style="margin-bottom: 0.5rem;">
-                            <tbody>
-                                {{range $apps}}
-                                <tr>
-                                    <td>
-                                        {{if .Icon}}<img class="app-icon" src="{{.Icon | safeURL}}">{{end}}
-                                        {{.Name}}
-                                    </td>
-                                    <td style="text-align: right; width: 7rem; white-space: nowrap;">{{formatDuration .Seconds}}</td>
-                                </tr>
-                                {{end}}
-                            </tbody>
-                        </table>
+                    {{if $cats}}
+                    <div class="catbar" role="img" aria-label="{{t $.Lang "activity.categories"}}">
+                        {{range $cats}}<div style="--cat: {{catColor .}}; flex: {{index $ua.CategoryTotals .}}" title="{{catName $.Lang .}}: {{formatDuration (index $ua.CategoryTotals .)}}"></div>{{end}}
+                    </div>
+                    <div class="legend" title="{{t $.Lang "activity.cattotal.tip"}}">
+                        {{range $cats}}<span style="--cat: {{catColor .}}"><i></i>{{catName $.Lang .}} <b>{{formatDuration (index $ua.CategoryTotals .)}}</b></span>{{end}}
+                    </div>
+
+                    <ul class="applist">
+                        {{range $apps}}
+                        <li style="--cat: {{catColor (deref .Category)}}">
+                            {{if .Icon}}<img src="{{.Icon | safeURL}}" alt="">{{else}}<span class="ph">{{initial .Name}}</span>{{end}}
+                            <div class="name">
+                                <div>{{.Name}}</div>
+                                <div class="track"><i style="width: {{pct .Seconds $max}}%"></i></div>
+                            </div>
+                            <span class="dur">{{formatDuration .Seconds}}</span>
+                        </li>
+                        {{end}}
+                    </ul>
+                    {{end}}
+
+                    {{with index $ua.ByCategory "Other"}}
+                    <details class="other">
+                        <summary>{{template "i" "right"}}{{t $.Lang "activity.other"}} · {{len .}} · {{formatDuration (index $ua.CategoryTotals "Other")}}</summary>
+                        <div class="other-list">
+                            {{range .}}<div>{{.Name}} <span>{{formatDuration .Seconds}}</span></div>{{end}}
+                        </div>
                     </details>
                     {{end}}
+                </article>
                 {{end}}
-
-                {{with index $ua.ByCategory "Other"}}
-                <details>
-                    <summary style="border-bottom: 1px solid var(--pico-muted-border-color); padding-bottom: 0.2rem;">{{t $.Lang "activity.other"}} <small>{{formatDuration (index $ua.CategoryTotals "Other")}}</small></summary>
-                    <table style="margin-bottom: 0.5rem;">
-                        <tbody>
-                            {{range .}}
-                            <tr>
-                                <td>
-                                    {{if .Icon}}<img class="app-icon" src="{{.Icon | safeURL}}">{{end}}
-                                    {{.Name}}
-                                </td>
-                                <td style="text-align: right; width: 7rem; white-space: nowrap;">{{formatDuration .Seconds}}</td>
-                            </tr>
-                            {{end}}
-                        </tbody>
-                    </table>
-                </details>
-                {{end}}
-            </article>
-            {{end}}
-        {{else}}
-            <article>
+            </div>
+            {{else}}
+            <div class="card empty">
+                {{template "i" "inbox"}}
                 <p>{{t .Lang "activity.nodata"}}</p>
-            </article>
-        {{end}}
-    </main>
+            </div>
+            {{end}}
+        </main>
+    </div>
+</div>
 </body>
 </html>

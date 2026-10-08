@@ -1,31 +1,61 @@
-{{range $name, $user := .Data.Users}}
-<article>
-    <header>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <strong style="font-size: 1.1rem;">
-                {{$name}}
-                {{if isLocked $user}}<mark class="locked">{{t $.Lang "user.locked"}} {{formatUntil $.Lang $user.LockedUntil}}</mark>
-                {{else if hasBonus $user}}<mark class="bonus">{{t $.Lang "user.bonus"}} {{formatUntil $.Lang $user.BonusUntil}}</mark>
-                {{end}}
-            </strong>
-            <button class="outline secondary" style="width: auto; margin: 0; padding: 0.25rem 0.75rem;" hx-delete="/users/{{$name}}" hx-target="#user-list" hx-swap="innerHTML" hx-confirm="{{t $.Lang "user.delete.confirm"}} {{$name}}?">{{t $.Lang "user.delete"}}</button>
+{{range .Data.Users}}
+<article class="card user-card" id="user-{{.Name}}">
+    <div class="user-top">
+        <div class="avatar" style="--hue: {{avatarHue .Name}}">{{initial .Name}}<span class="dot {{.Status}}"></span></div>
+        <div class="who">
+            <h2>{{.Name}}</h2>
+            <small>
+                {{if .Status}}{{t $.Lang (print "status." .Status)}}{{if .Host}} · {{.Host}}{{end}}
+                {{else}}{{t $.Lang "status.never"}}{{end}}
+            </small>
         </div>
-    </header>
-
-    <div role="group" style="margin-bottom: 1rem;">
-        {{if isLocked $user}}
-            <button class="outline" hx-post="/users/{{$name}}/unlock" hx-target="#user-list" hx-swap="innerHTML">{{t $.Lang "user.unlock"}}</button>
-        {{else}}
-            <button class="outline contrast" hx-post="/users/{{$name}}/lock" hx-target="#user-list" hx-swap="innerHTML">{{t $.Lang "user.lock"}}</button>
-        {{end}}
-        <form role="group" style="margin: 0;" hx-post="/users/{{$name}}/bonus" hx-target="#user-list" hx-swap="innerHTML">
-            <input type="number" name="minutes" min="1" value="15" style="width: 5rem;">
-            <button type="submit" class="outline">{{t $.Lang "user.bonus.btn"}}</button>
-        </form>
     </div>
 
-    <div id="schedules-{{$name}}">
-        {{template "user_schedules.html" (dict "Lang" $.Lang "Data" (dict "Name" $name "User" $user))}}
+    {{template "state" (dict "Lang" $.Lang "User" .User "Today" .Today)}}
+
+    {{if .TopApps}}
+    <div class="apps-today">
+        {{range .TopApps}}
+        <span class="app-chip" style="--cat: {{catColor (deref .Category)}}">
+            {{if .Icon}}<img src="{{.Icon | safeURL}}" alt="">{{else}}<i class="ph"></i>{{end}}
+            {{.Name}} <span>{{formatDuration .Seconds}}</span>
+        </span>
+        {{end}}
+    </div>
+    {{end}}
+
+    <div class="actions">
+        {{if isLocked .User}}
+        <button class="btn btn-good btn-block" hx-post="/users/{{.Name}}/unlock" hx-target="#user-list" hx-swap="innerHTML">{{template "i" "unlock"}}{{t $.Lang "user.unlock"}}</button>
+        {{else}}
+        <button class="btn btn-danger btn-block" hx-post="/users/{{.Name}}/lock" hx-target="#user-list" hx-swap="innerHTML">{{template "i" "lock"}}{{t $.Lang "user.lock"}}</button>
+        {{end}}
+        <div class="bonus">
+        <div class="section-title"><span>{{t $.Lang "user.bonus.add"}}</span></div>
+        <div class="bonus-row">
+            <button class="btn btn-sm" hx-post="/users/{{.Name}}/bonus" hx-vals='{"minutes": "15"}' hx-target="#user-list" hx-swap="innerHTML">+15m</button>
+            <button class="btn btn-sm" hx-post="/users/{{.Name}}/bonus" hx-vals='{"minutes": "30"}' hx-target="#user-list" hx-swap="innerHTML">+30m</button>
+            <button class="btn btn-sm" hx-post="/users/{{.Name}}/bonus" hx-vals='{"minutes": "60"}' hx-target="#user-list" hx-swap="innerHTML">+1h</button>
+            <form hx-post="/users/{{.Name}}/bonus" hx-target="#user-list" hx-swap="innerHTML">
+                <input type="number" name="minutes" min="1" max="1440" placeholder="{{t $.Lang "user.bonus.custom"}}" aria-label="{{t $.Lang "user.bonus.custom"}}" required>
+                <button class="btn btn-sm btn-icon" type="submit" aria-label="{{t $.Lang "user.bonus.btn"}}">{{template "i" "plus"}}</button>
+            </form>
+        </div>
+        </div>
+    </div>
+
+    <div>
+        {{template "user_schedules.html" (dict "Lang" $.Lang "Data" (dict "Name" .Name "User" .User))}}
+    </div>
+
+    <div class="card-foot">
+        <small>{{if not .TopApps}}{{t $.Lang "user.noactivity"}}{{end}}</small>
+        <button class="btn btn-ghost btn-sm" hx-delete="/users/{{.Name}}" hx-target="#user-list" hx-swap="innerHTML" hx-confirm="{{t $.Lang "user.delete.confirm"}} {{.Name}}?">{{template "i" "trash"}}{{t $.Lang "user.delete"}}</button>
     </div>
 </article>
+{{else}}
+<div class="card empty">
+    {{template "i" "users"}}
+    <p>{{t .Lang "users.empty"}}</p>
+</div>
 {{end}}

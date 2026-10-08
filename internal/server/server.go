@@ -56,6 +56,7 @@ func New(cfg ServerConfig) http.Handler {
 	mux.Handle("GET /manifest.json", staticHandler())
 	mux.Handle("GET /icon.svg", staticHandler())
 	mux.Handle("GET /chart.min.js", staticHandler())
+	mux.Handle("GET /app.css", staticHandler())
 
 	// Login/logout/language (no auth)
 	mux.HandleFunc("GET /login", h.loginPage)

@@ -13,7 +13,7 @@ Communication: daemon polls server (`GET /api/config`, `POST /api/activity`, `GE
 
 - `internal/config/` — Shared types (Config, User, Schedule), schedule evaluation (`IsAllowed`), JSON store with atomic writes
 - `internal/activity/` — Process scanning (`/proc`), `.desktop` file parsing, process tree grouping, activity storage (per-day JSON)
-- `internal/server/` — HTTP handlers, HMAC cookie auth, Pico CSS templates, embedded static assets
+- `internal/server/` — HTTP handlers, HMAC cookie auth, templates, embedded static assets
 - `internal/denylist/` — Atomic read/write of PAM deny-users file
 - `internal/update/` — Daemon self-update (download binary from server, replace, exit for systemd restart)
 
@@ -54,6 +54,6 @@ Docker: `docker compose up` (needs `ADMIN_PASS` env var).
 - Templates use `embed.FS` — compiled into binary
 - Go 1.22+ `ServeMux` pattern routing (method + path)
 - Templates: each page is self-contained HTML (no shared `{{define "content"}}` — that causes conflicts). Shared parts via `{{template "head"}}` and `{{template "nav"}}`.
-- Pico CSS via CDN, HTMX via CDN
+- Own stylesheet `internal/server/static/app.css` (no CSS framework), HTMX via CDN
 - i18n: all UI strings in `internal/server/i18n.go`. Templates use `{{t .Lang "key"}}`. Language stored in cookie, toggled via `/lang/{lang}`. Every handler uses `h.render()` which wraps data as `{Lang, Data}`.
 - "Other" is the internal category key for uncategorized apps (translated to "Sonstiges" in German)

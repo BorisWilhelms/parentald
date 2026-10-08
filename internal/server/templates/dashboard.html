@@ -1,168 +1,233 @@
 <!DOCTYPE html>
-<html lang="{{.Lang}}" data-theme="auto">
+<html lang="{{.Lang}}">
 {{template "head"}}
 <body>
-    <script src="/chart.min.js"></script>
-    <main class="container">
-        {{template "nav" .}}
+<script src="/chart.min.js"></script>
+<div class="shell">
+    {{template "nav" (dict "Lang" .Lang "Page" "dashboard")}}
+    <div class="content">
+        <main class="main">
+            <div class="page-head"><h1>{{t .Lang "nav.dashboard"}}</h1></div>
 
-        <article>
-            <header><strong>{{t .Lang "nav.dashboard"}}</strong></header>
-            <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: end;">
-                <label>{{t .Lang "dashboard.user"}}
-                    <select id="user-select" onchange="onUserChange()">
-                        {{range .Data.Users}}<option value="{{.}}">{{.}}</option>{{end}}
-                    </select>
-                </label>
-                <label>{{t .Lang "dashboard.from"}}
-                    <input type="date" id="date-from" value="{{.Data.From}}">
-                </label>
-                <label>{{t .Lang "dashboard.to"}}
-                    <input type="date" id="date-to" value="{{.Data.To}}">
-                </label>
-                <button onclick="loadCharts()">{{t .Lang "dashboard.update"}}</button>
+            {{if .Data.Users}}
+            <div class="filters">
+                <div class="seg" id="user-seg" role="group" aria-label="{{t .Lang "dashboard.user"}}">
+                    {{range .Data.Users}}<button type="button" data-user="{{.}}">{{.}}</button>{{end}}
+                </div>
+                <div class="seg seg-range" id="range-seg" role="group">
+                    <button type="button" data-days="7">{{t .Lang "dashboard.range.7"}}</button>
+                    <button type="button" data-days="14">{{t .Lang "dashboard.range.14"}}</button>
+                    <button type="button" data-days="30">{{t .Lang "dashboard.range.30"}}</button>
+                    <button type="button" data-days="custom">{{t .Lang "dashboard.custom"}}</button>
+                </div>
             </div>
-        </article>
-
-        <article>
-            <header><strong>{{t .Lang "dashboard.screentime"}}</strong></header>
-            <canvas id="screentime-chart" height="100"></canvas>
-        </article>
-
-        <article>
-            <header><strong>{{t .Lang "dashboard.apptime"}}</strong></header>
-            <div style="margin-bottom: 0.5rem;">
-                <label>{{t .Lang "dashboard.filterApp"}}
-                    <select id="app-select" onchange="loadCharts()">
-                        <option value="">{{t .Lang "dashboard.allApps"}}</option>
-                    </select>
-                </label>
+            <div class="custom-range" id="custom-range">
+                <input type="date" id="date-from" value="{{.Data.From}}" aria-label="{{t .Lang "dashboard.from"}}">
+                <input type="date" id="date-to" value="{{.Data.To}}" aria-label="{{t .Lang "dashboard.to"}}">
             </div>
-            <canvas id="apptime-chart" height="150"></canvas>
-        </article>
-    </main>
 
-    <script>
-    let stChart = null;
-    let atChart = null;
+            <div class="kpis">
+                <div class="card kpi"><small>{{t .Lang "dashboard.total"}}</small><strong id="kpi-total">–</strong><span id="kpi-days">&nbsp;</span></div>
+                <div class="card kpi"><small>{{t .Lang "dashboard.avg"}}</small><strong id="kpi-avg">–</strong><span>{{t .Lang "activity.screentime"}}</span></div>
+                <div class="card kpi"><small>{{t .Lang "dashboard.max"}}</small><strong id="kpi-max">–</strong><span id="kpi-max-day">&nbsp;</span></div>
+                <div class="card kpi"><small>{{t .Lang "dashboard.topApp"}}</small><strong id="kpi-app">–</strong><span id="kpi-app-time">&nbsp;</span></div>
+            </div>
 
-    function getParams() {
-        return {
-            user: document.getElementById('user-select').value,
-            from: document.getElementById('date-from').value,
-            to: document.getElementById('date-to').value,
-            app: document.getElementById('app-select').value
-        };
+            <section class="card">
+                <div class="card-head"><h2>{{t .Lang "dashboard.screentime"}}</h2></div>
+                <div class="chart-box"><canvas id="screentime-chart"></canvas></div>
+            </section>
+
+            <div class="grid-2">
+                <section class="card">
+                    <div class="card-head"><h2>{{t .Lang "dashboard.apptime"}}</h2></div>
+                    <div class="chart-box"><canvas id="apptime-chart"></canvas></div>
+                </section>
+                <section class="card">
+                    <div class="card-head"><h2>{{t .Lang "dashboard.topApps"}}</h2></div>
+                    <ul class="applist" id="top-apps"></ul>
+                </section>
+            </div>
+            {{else}}
+            <div class="card empty">
+                {{template "i" "chart"}}
+                <p>{{t .Lang "dashboard.nousers"}}</p>
+            </div>
+            {{end}}
+        </main>
+    </div>
+</div>
+
+{{if .Data.Users}}
+<script>
+const T = {
+    more: {{t .Lang "dashboard.more"}},
+    nodata: {{t .Lang "dashboard.nodata"}},
+    days: [{{t .Lang "day.sun"}}, {{t .Lang "day.mon"}}, {{t .Lang "day.tue"}}, {{t .Lang "day.wed"}}, {{t .Lang "day.thu"}}, {{t .Lang "day.fri"}}, {{t .Lang "day.sat"}}],
+    daysLabel: {{t .Lang "dashboard.range.7"}}.replace(/\d+/, '%d'),
+};
+const MAX_SERIES = 7;
+const state = { user: null, days: 7 };
+let stChart = null, atChart = null, last = null;
+
+function load(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch (e) { return fallback; } }
+function save(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
+function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function fmt(seconds) {
+    const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60);
+    return h > 0 ? h + 'h ' + m + 'm' : m + 'm';
+}
+function dayLabel(date) {
+    const d = new Date(date + 'T00:00:00');
+    return T.days[d.getDay()] + ' ' + String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.';
+}
+function dateRange(from, to) {
+    const out = [];
+    for (let d = new Date(from + 'T00:00:00'); iso(d) <= to; d.setDate(d.getDate() + 1)) out.push(iso(d));
+    return out;
+}
+function esc(s) { const el = document.createElement('span'); el.textContent = s; return el.innerHTML; }
+
+function range() {
+    if (state.days === 'custom') {
+        return { from: document.getElementById('date-from').value, to: document.getElementById('date-to').value };
     }
+    const to = new Date(), from = new Date();
+    from.setDate(from.getDate() - (state.days - 1));
+    return { from: iso(from), to: iso(to) };
+}
 
-    function formatMinutes(seconds) {
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        return h > 0 ? h + 'h ' + m + 'm' : m + 'm';
-    }
+function syncButtons() {
+    document.querySelectorAll('#user-seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.user === state.user));
+    document.querySelectorAll('#range-seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.days === String(state.days)));
+    document.getElementById('custom-range').classList.toggle('show', state.days === 'custom');
+}
 
-    async function loadCharts() {
-        const p = getParams();
-        const headers = {};
-        const cookie = document.cookie.split(';').find(c => c.trim().startsWith('parentald_session='));
+async function refresh() {
+    syncButtons();
+    const { from, to } = range();
+    if (!from || !to || from > to) return;
+    const q = 'user=' + encodeURIComponent(state.user) + '&from=' + from + '&to=' + to;
+    const [st, at] = await Promise.all([
+        fetch('/api/chart/screentime?' + q).then(r => r.json()),
+        fetch('/api/chart/apptime?' + q).then(r => r.json()),
+    ]);
+    last = { from, to, st: st || [], at: at || [] };
+    render();
+}
 
-        // Screen time chart
-        const stResp = await fetch(`/api/chart/screentime?user=${p.user}&from=${p.from}&to=${p.to}`);
-        const stData = await stResp.json();
+function render() {
+    if (!last) return;
+    const { from, to, st, at } = last;
+    const dates = dateRange(from, to);
+    const series = ['--c1', '--c2', '--c3', '--c4', '--c5', '--c6', '--c7'].map(css);
+    const other = css('--c-other'), surface = css('--surface'), grid = css('--grid'), muted = css('--muted'), text = css('--text');
 
-        if (stChart) stChart.destroy();
-        stChart = new Chart(document.getElementById('screentime-chart'), {
-            type: 'bar',
-            data: {
-                labels: (stData || []).map(d => d.date),
-                datasets: [{
-                    label: p.user,
-                    data: (stData || []).map(d => Math.round(d.seconds / 60)),
-                    backgroundColor: 'rgba(99, 102, 241, 0.6)',
-                    borderColor: 'rgb(99, 102, 241)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: { display: true, text: 'Minutes' },
-                        ticks: { callback: v => formatMinutes(v * 60) }
-                    }
-                },
-                plugins: {
-                    tooltip: {
-                        callbacks: { label: ctx => formatMinutes(ctx.raw * 60) }
-                    }
-                }
-            }
-        });
+    // Screen time per day, missing days as zero
+    const stByDate = Object.fromEntries(st.map(d => [d.date, d.seconds]));
+    const stValues = dates.map(d => stByDate[d] || 0);
+    const total = stValues.reduce((a, b) => a + b, 0);
+    const active = stValues.filter(v => v > 0).length;
+    const maxIdx = stValues.indexOf(Math.max(...stValues));
+    document.getElementById('kpi-total').textContent = fmt(total);
+    document.getElementById('kpi-days').textContent = T.daysLabel.replace('%d', dates.length);
+    document.getElementById('kpi-avg').textContent = fmt(active ? total / active : 0);
+    document.getElementById('kpi-max').textContent = total ? fmt(stValues[maxIdx]) : '–';
+    document.getElementById('kpi-max-day').textContent = total ? dayLabel(dates[maxIdx]) : ' ';
 
-        // App time chart
-        const atResp = await fetch(`/api/chart/apptime?user=${p.user}&app=${p.app}&from=${p.from}&to=${p.to}`);
-        const atData = await atResp.json();
+    // Apps ranked by total in range; the rest folds into "Other apps"
+    const appTotals = {};
+    at.forEach(d => { appTotals[d.appName] = (appTotals[d.appName] || 0) + d.seconds; });
+    const ranked = Object.keys(appTotals).sort((a, b) => appTotals[b] - appTotals[a]);
+    const top = ranked.slice(0, MAX_SERIES);
+    const rest = ranked.slice(MAX_SERIES);
+    const colorOf = app => series[top.indexOf(app)] || other;
 
-        // Group by app name for stacked bar
-        const dates = [...new Set((atData || []).map(d => d.date))].sort();
-        const apps = [...new Set((atData || []).map(d => d.appName))];
-        const colors = ['#6366f1','#f59e0b','#10b981','#ef4444','#8b5cf6','#06b6d4','#f97316','#84cc16','#ec4899','#14b8a6'];
+    document.getElementById('kpi-app').textContent = top[0] || '–';
+    document.getElementById('kpi-app-time').textContent = top[0] ? fmt(appTotals[top[0]]) : ' ';
 
-        const datasets = apps.map((app, i) => ({
-            label: app,
-            data: dates.map(date => {
-                const entry = (atData || []).find(d => d.date === date && d.appName === app);
-                return entry ? Math.round(entry.seconds / 60) : 0;
-            }),
-            backgroundColor: colors[i % colors.length] + '99',
-            borderColor: colors[i % colors.length],
-            borderWidth: 1
-        }));
-
-        if (atChart) atChart.destroy();
-        atChart = new Chart(document.getElementById('apptime-chart'), {
-            type: 'bar',
-            data: { labels: dates, datasets: datasets },
-            options: {
-                responsive: true,
-                scales: {
-                    x: { stacked: true },
-                    y: {
-                        stacked: true,
-                        beginAtZero: true,
-                        title: { display: true, text: 'Minutes' },
-                        ticks: { callback: v => formatMinutes(v * 60) }
-                    }
-                },
-                plugins: {
-                    tooltip: {
-                        callbacks: { label: ctx => ctx.dataset.label + ': ' + formatMinutes(ctx.raw * 60) }
-                    }
-                }
-            }
-        });
-    }
-
-    async function onUserChange() {
-        const user = document.getElementById('user-select').value;
-        const resp = await fetch(`/api/chart/apps?user=${user}`);
-        const apps = await resp.json();
-        const select = document.getElementById('app-select');
-        select.innerHTML = '<option value="">{{t .Lang "dashboard.allApps"}}</option>';
-        (apps || []).forEach(app => {
-            const opt = document.createElement('option');
-            opt.value = app;
-            opt.textContent = app;
-            select.appendChild(opt);
-        });
-        loadCharts();
-    }
-
-    // Load on page ready
-    document.addEventListener('DOMContentLoaded', () => {
-        onUserChange();
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+    Chart.defaults.color = muted;
+    const axes = stacked => ({
+        x: { stacked, grid: { display: false }, border: { color: grid }, ticks: { maxRotation: 0, autoSkipPadding: 12 } },
+        y: { stacked, beginAtZero: true, grid: { color: grid }, border: { display: false }, ticks: { callback: v => fmt(v * 60), maxTicksLimit: 5 } },
     });
-    </script>
+    const tooltip = { backgroundColor: surface, titleColor: text, bodyColor: text, borderColor: grid, borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true };
+
+    if (stChart) stChart.destroy();
+    stChart = new Chart(document.getElementById('screentime-chart'), {
+        type: 'bar',
+        data: {
+            labels: dates.map(dayLabel),
+            datasets: [{ data: stValues.map(v => Math.round(v / 60)), backgroundColor: series[0], borderRadius: 4, borderSkipped: 'start', maxBarThickness: 32 }],
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: axes(false),
+            plugins: { legend: { display: false }, tooltip: { ...tooltip, callbacks: { label: c => fmt(c.raw * 60) } } },
+        },
+    });
+
+    const datasets = top.map(app => ({
+        label: app,
+        data: dates.map(date => { const e = at.find(d => d.date === date && d.appName === app); return e ? Math.round(e.seconds / 60) : 0; }),
+        backgroundColor: colorOf(app),
+    }));
+    if (rest.length) {
+        datasets.push({
+            label: T.more,
+            data: dates.map(date => Math.round(at.filter(d => d.date === date && rest.includes(d.appName)).reduce((a, d) => a + d.seconds, 0) / 60)),
+            backgroundColor: other,
+        });
+    }
+    datasets.forEach(ds => Object.assign(ds, { borderColor: surface, borderWidth: { top: 2 }, borderSkipped: 'start', maxBarThickness: 32 }));
+
+    if (atChart) atChart.destroy();
+    atChart = new Chart(document.getElementById('apptime-chart'), {
+        type: 'bar',
+        data: { labels: dates.map(dayLabel), datasets },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index' },
+            scales: axes(true),
+            plugins: {
+                legend: { position: 'bottom', labels: { usePointStyle: true, pointStyle: 'rectRounded', boxWidth: 8, boxHeight: 8, color: text, padding: 12 } },
+                tooltip: { ...tooltip, filter: c => c.raw > 0, callbacks: { label: c => ' ' + c.dataset.label + ': ' + fmt(c.raw * 60) } },
+            },
+        },
+    });
+
+    // Top apps list
+    const list = document.getElementById('top-apps');
+    const maxApp = appTotals[ranked[0]] || 1;
+    list.innerHTML = ranked.length ? ranked.slice(0, 10).map(app => `
+        <li style="--cat: ${colorOf(app)}">
+            <span class="ph">${esc(app.charAt(0).toUpperCase())}</span>
+            <div class="name"><div>${esc(app)}</div><div class="track"><i style="width: ${appTotals[app] * 100 / maxApp}%"></i></div></div>
+            <span class="dur">${fmt(appTotals[app])}</span>
+        </li>`).join('') : `<li><span></span><span class="muted">${esc(T.nodata)}</span></li>`;
+}
+
+document.getElementById('user-seg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    state.user = b.dataset.user; save('dash.user', state.user); refresh();
+});
+document.getElementById('range-seg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    state.days = b.dataset.days === 'custom' ? 'custom' : Number(b.dataset.days);
+    save('dash.days', String(state.days)); refresh();
+});
+document.getElementById('date-from').addEventListener('change', refresh);
+document.getElementById('date-to').addEventListener('change', refresh);
+document.addEventListener('themechange', render);
+
+const users = [...document.querySelectorAll('#user-seg button')].map(b => b.dataset.user);
+state.user = users.includes(load('dash.user')) ? load('dash.user') : users[0];
+const savedDays = load('dash.days', '7');
+state.days = savedDays === 'custom' ? 'custom' : (Number(savedDays) || 7);
+refresh();
+</script>
+{{end}}
 </body>
 </html>

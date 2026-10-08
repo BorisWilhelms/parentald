@@ -1,47 +1,47 @@
+<div class="section-title"><span>{{t .Lang "user.schedule"}}</span></div>
 {{if .Data.User.Schedules}}
-<table>
-    <thead>
-        <tr>
-            <th>{{t .Lang "schedule.days"}}</th>
-            <th>{{t .Lang "schedule.from"}}</th>
-            <th>{{t .Lang "schedule.to"}}</th>
-            <th></th>
-        </tr>
-    </thead>
-    <tbody>
-        {{range $i, $s := .Data.User.Schedules}}
-        <tr>
-            <td>{{join $s.Days ", "}}</td>
-            <td>{{$s.From}}</td>
-            <td>{{$s.To}}</td>
-            <td>
-                <button class="outline secondary" style="width: auto; margin: 0; padding: 0.2rem 0.6rem;" hx-delete="/users/{{$.Data.Name}}/schedules/{{$i}}" hx-target="#schedules-{{$.Data.Name}}" hx-swap="innerHTML">{{t $.Lang "schedule.delete"}}</button>
-            </td>
-        </tr>
-        {{end}}
-    </tbody>
-</table>
+{{- $today := todayKey}}{{$now := nowPct}}{{$lang := .Lang}}{{$scheds := .Data.User.Schedules}}
+<div class="timeline">
+    {{range weekDays}}
+    <div class="tl-row{{if eq . $today}} today{{end}}">
+        <span>{{t $lang (print "day." .)}}</span>
+        <div class="tl-track">
+            {{range scheduleBars $scheds .}}<div class="tl-bar" style="left: {{.Left}}%; width: {{.Width}}%" title="{{.Label}}"></div>{{end}}
+            {{if eq . $today}}<div class="tl-now" style="left: {{$now}}%"></div>{{end}}
+        </div>
+    </div>
+    {{end}}
+    <div class="tl-scale"><span></span><div><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></div></div>
+</div>
+<div class="slots">
+    {{range $i, $s := .Data.User.Schedules}}
+    <span class="slot">
+        <span>{{range $j, $d := $s.Days}}{{if $j}}, {{end}}{{t $lang (print "day." $d)}}{{end}}</span>
+        <b>{{$s.From}}–{{$s.To}}</b>
+        <button hx-delete="/users/{{$.Data.Name}}/schedules/{{$i}}" hx-target="#user-list" hx-swap="innerHTML" title="{{t $lang "schedule.delete"}}" aria-label="{{t $lang "schedule.delete"}}"><svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </span>
+    {{end}}
+</div>
 {{else}}
-<p><small>{{t .Lang "schedule.none"}}</small></p>
+<div class="tl-free">{{t .Lang "schedule.none"}}</div>
 {{end}}
 
-<details>
-    <summary role="button" class="outline">{{t .Lang "schedule.add"}}</summary>
-    <form hx-post="/users/{{.Data.Name}}/schedules" hx-target="#schedules-{{.Data.Name}}" hx-swap="innerHTML" style="margin-top: 0.75rem;">
-        <fieldset class="days-inline">
-            <label><input type="checkbox" name="days" value="mon"> {{t .Lang "day.mon"}}</label>
-            <label><input type="checkbox" name="days" value="tue"> {{t .Lang "day.tue"}}</label>
-            <label><input type="checkbox" name="days" value="wed"> {{t .Lang "day.wed"}}</label>
-            <label><input type="checkbox" name="days" value="thu"> {{t .Lang "day.thu"}}</label>
-            <label><input type="checkbox" name="days" value="fri"> {{t .Lang "day.fri"}}</label>
-            <label><input type="checkbox" name="days" value="sat"> {{t .Lang "day.sat"}}</label>
-            <label><input type="checkbox" name="days" value="sun"> {{t .Lang "day.sun"}}</label>
-        </fieldset>
-        <div role="group">
-            <input type="time" name="from" required>
-            <span>—</span>
-            <input type="time" name="to" required>
-            <button type="submit">{{t .Lang "schedule.submit"}}</button>
+<details class="add">
+    <summary class="btn btn-sm">{{template "i" "plus"}}{{t .Lang "schedule.add"}}</summary>
+    <form class="add-form" hx-post="/users/{{.Data.Name}}/schedules" hx-target="#user-list" hx-swap="innerHTML">
+        <div class="presets">
+            <button type="button" onclick="setDays(this, ['mon','tue','wed','thu','fri'])">{{t .Lang "schedule.preset.weekdays"}}</button>
+            <button type="button" onclick="setDays(this, ['sat','sun'])">{{t .Lang "schedule.preset.weekend"}}</button>
+            <button type="button" onclick="setDays(this, ['mon','tue','wed','thu','fri','sat','sun'])">{{t .Lang "schedule.preset.all"}}</button>
         </div>
+        <div class="days">
+            {{$lang := .Lang}}{{range weekDays}}<label class="chip"><input type="checkbox" name="days" value="{{.}}"><span>{{t $lang (print "day." .)}}</span></label>{{end}}
+        </div>
+        <div class="row">
+            <input type="time" name="from" required aria-label="{{t .Lang "schedule.from"}}">
+            <span class="muted">–</span>
+            <input type="time" name="to" required aria-label="{{t .Lang "schedule.to"}}">
+        </div>
+        <button class="btn btn-primary" type="submit">{{t .Lang "schedule.submit"}}</button>
     </form>
 </details>

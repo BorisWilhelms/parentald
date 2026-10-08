@@ -1,21 +1,29 @@
 <!DOCTYPE html>
-<html lang="{{.Lang}}" data-theme="auto">
+<html lang="{{.Lang}}">
 {{template "head"}}
 <body>
-    <main class="container">
-        {{template "nav" .}}
+<div class="shell">
+    {{template "nav" (dict "Lang" .Lang "Page" "users")}}
+    <div class="content">
+        <main class="main">
+            <div class="page-head">
+                <h1>{{t .Lang "nav.users"}}</h1>
+                <form class="row" hx-post="/users" hx-target="#user-list" hx-swap="innerHTML" hx-on::after-request="if(event.detail.successful) this.reset()">
+                    <input type="text" name="name" placeholder="{{t .Lang "users.placeholder"}}" required autocomplete="off" autocapitalize="off" spellcheck="false">
+                    <button class="btn btn-primary" type="submit">{{template "i" "userplus"}}<span>{{t .Lang "users.submit"}}</span></button>
+                </form>
+            </div>
 
-        <article>
-            <header><strong>{{t .Lang "users.add"}}</strong></header>
-            <form role="group" hx-post="/users" hx-target="#user-list" hx-swap="innerHTML">
-                <input type="text" name="name" placeholder="{{t .Lang "users.placeholder"}}" required>
-                <button type="submit">{{t .Lang "users.submit"}}</button>
-            </form>
-        </article>
-
-        <div id="user-list">
-            {{template "user_list.html" .}}
-        </div>
-    </main>
+            <div id="user-list" class="users">
+                {{template "user_list.html" .}}
+            </div>
+        </main>
+    </div>
+</div>
+<script>
+function setDays(btn, days) {
+    btn.closest('form').querySelectorAll('input[name="days"]').forEach(c => { c.checked = days.includes(c.value); });
+}
+</script>
 </body>
 </html>

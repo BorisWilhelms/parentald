@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -42,8 +43,46 @@ func (h *handlers) render(w http.ResponseWriter, r *http.Request, name string, d
 }
 
 func (h *handlers) index(w http.ResponseWriter, r *http.Request) {
+	h.render(w, r, "index.html", h.userListData())
+}
+
+// userCard is the view model for one user on the overview page.
+type userCard struct {
+	Name    string
+	User    config.User
+	Status  string // online, idle, offline or "" when never seen
+	Host    string
+	Today   int
+	TopApps []*activity.AppTime
+}
+
+func (h *handlers) userListData() map[string]any {
 	cfg := h.store.Get()
-	h.render(w, r, "index.html", cfg)
+	statuses := h.actStore.GetStatuses()
+	today, err := h.actStore.GetDay(time.Now().Format("2006-01-02"))
+	if err != nil {
+		log.Printf("load today's activity: %v", err)
+	}
+
+	cards := make([]userCard, 0, len(cfg.Users))
+	for name, u := range cfg.Users {
+		c := userCard{Name: name, User: u}
+		if st := statuses[name]; st != nil {
+			c.Status = st.Status
+			c.Host = st.Hostname
+		}
+		if ua := today[name]; ua != nil {
+			c.Today = ua.ScreenTime
+			apps := sortedApps(ua)
+			if len(apps) > 4 {
+				apps = apps[:4]
+			}
+			c.TopApps = apps
+		}
+		cards = append(cards, c)
+	}
+	sort.Slice(cards, func(i, j int) bool { return cards[i].Name < cards[j].Name })
+	return map[string]any{"Users": cards}
 }
 
 func (h *handlers) loginPage(w http.ResponseWriter, r *http.Request) {
@@ -218,7 +257,7 @@ func (h *handlers) addSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.renderUserSchedules(w, r, name)
+	h.renderUserList(w, r)
 }
 
 func (h *handlers) deleteSchedule(w http.ResponseWriter, r *http.Request) {
@@ -242,7 +281,7 @@ func (h *handlers) deleteSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.renderUserSchedules(w, r, name)
+	h.renderUserList(w, r)
 }
 
 func (h *handlers) lockUser(w http.ResponseWriter, r *http.Request) {
@@ -492,18 +531,5 @@ func (h *handlers) apiChartApps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlers) renderUserList(w http.ResponseWriter, r *http.Request) {
-	cfg := h.store.Get()
-	h.render(w, r, "user_list.html", cfg)
-}
-
-func (h *handlers) renderUserSchedules(w http.ResponseWriter, r *http.Request, username string) {
-	cfg := h.store.Get()
-	data := struct {
-		Name string
-		User config.User
-	}{
-		Name: username,
-		User: cfg.Users[username],
-	}
-	h.render(w, r, "user_schedules.html", data)
+	h.render(w, r, "user_list.html", h.userListData())
 }

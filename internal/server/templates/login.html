@@ -1,25 +1,23 @@
 <!DOCTYPE html>
-<html lang="{{.Lang}}" data-theme="auto">
+<html lang="{{.Lang}}">
 {{template "head"}}
 <body>
-    <main class="container" style="max-width: 400px; margin-top: 10vh;">
-        <article>
-            <h2>parentald</h2>
-            {{with .Data}}{{with .Error}}
-            <p style="color: var(--pico-del-color);">{{.}}</p>
-            {{end}}{{end}}
-            <form method="POST" action="/login">
-                <label>
-                    {{t .Lang "login.username"}}
-                    <input type="text" name="username" required autofocus>
-                </label>
-                <label>
-                    {{t .Lang "login.password"}}
-                    <input type="password" name="password" required>
-                </label>
-                <button type="submit">{{t .Lang "login.submit"}}</button>
-            </form>
-        </article>
-    </main>
+<div class="login-wrap">
+    <div class="card login">
+        <img class="logo" src="/icon.svg" alt="">
+        <h1>parentald</h1>
+        <p>{{t .Lang "login.welcome"}}</p>
+        {{with .Data}}{{with .Error}}<div class="alert">{{.}}</div>{{end}}{{end}}
+        <form method="POST" action="/login">
+            <label class="field">{{t .Lang "login.username"}}
+                <input type="text" name="username" required autofocus autocomplete="username" autocapitalize="off">
+            </label>
+            <label class="field">{{t .Lang "login.password"}}
+                <input type="password" name="password" required autocomplete="current-password">
+            </label>
+            <button class="btn btn-primary btn-block" type="submit">{{t .Lang "login.submit"}}</button>
+        </form>
+    </div>
+</div>
 </body>
 </html>

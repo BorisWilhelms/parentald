@@ -3,8 +3,8 @@
   "short_name": "parentald",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#6366f1",
+  "background_color": "#f6f6f9",
+  "theme_color": "#4f46e5",
   "icons": [
     {
       "src": "/icon.svg",
